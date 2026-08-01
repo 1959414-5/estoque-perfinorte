@@ -629,7 +629,7 @@ function renderItemSolicitacaoCard(item, idx) {
 
     '<div class="field">' +
     '<label>Quantidade</label>' +
-    '<input type="number" min="1" inputmode="numeric" value="' + item.quantidade + '" oninput="atualizarQtdItem(\'' + item.uid + '\', this.value)">' +
+    '<input type="number" min="1" inputmode="numeric" value="' + item.quantidade + '" oninput="atualizarQtdItem(\'' + item.uid + '\', this.value)" onblur="limparZerosQuantidade(this, 1); atualizarQtdItem(\'' + item.uid + '\', this.value)">' +
     '</div>' +
 
     '<div class="field">' +
@@ -964,7 +964,7 @@ function renderItemPedidoDetalhe(it) {
 
   if (MODO_ADMIN) {
     html += '<div style="display:flex; gap:6px; margin:6px 0;">';
-    html += '<input type="number" min="1" inputmode="numeric" value="' + it.Quantidade + '" id="qtd-item-' + it.ID_Solicitacao + '" style="flex:1; padding:8px; border:1.5px solid var(--line); border-radius:8px;">';
+    html += '<input type="number" min="1" inputmode="numeric" value="' + it.Quantidade + '" id="qtd-item-' + it.ID_Solicitacao + '" style="flex:1; padding:8px; border:1.5px solid var(--line); border-radius:8px;" onblur="limparZerosQuantidade(this, 1)">';
     html += '<button type="button" class="btn-secondary" style="width:auto; margin:0; padding:8px 12px;" onclick="salvarQtdItemPedido(\'' + it.ID_Solicitacao + '\')">Salvar qtd</button>';
     html += '</div>';
     html += '<label class="urgent-label" style="margin-bottom:8px;">' +
@@ -1785,6 +1785,15 @@ function formatarEspessura(valor) {
   const n = Number(valor);
   if (isNaN(n)) return String(valor);
   return n.toFixed(2).replace('.', ',') + 'mm';
+}
+
+// Limpa zeros à esquerda sem sentido (ex: "01", "001") assim que a pessoa
+// sai do campo — por segurança, pra nunca dar ambiguidade na hora de dar
+// baixa/entrada de estoque. minimoPermitido: 0 pra estoque, 1 pra quantidade.
+function limparZerosQuantidade(el, minimoPermitido) {
+  const min = minimoPermitido === undefined ? 1 : minimoPermitido;
+  const limpo = Math.max(min, parseInt(el.value, 10) || min);
+  el.value = limpo;
 }
 
 function esc(str) {
