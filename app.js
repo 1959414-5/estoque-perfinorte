@@ -31,6 +31,7 @@ let MODO_PECA_ORIGEM = 'catalogo'; // 'catalogo' | 'solicitacao' — de onde abr
 let FILTRO_STATUS = 'Todos';
 let FILTRO_LINHA_PICKER = 'Todas';
 let FILTRO_LINHA_CATALOGO = 'Todas';
+let FILTRO_ESTOQUE_BAIXO = false;
 let MOVIMENTO_PECA_ATUAL = null;
 let MOVIMENTO_TIPO_ATUAL = 'entrada';
 
@@ -412,6 +413,12 @@ function inativarPecaAtual(id) {
     .catch(function (err) { toast('Erro: ' + err.message); });
 }
 
+function alternarFiltroEstoqueBaixo() {
+  FILTRO_ESTOQUE_BAIXO = !FILTRO_ESTOQUE_BAIXO;
+  document.getElementById('filtro-estoque-baixo').classList.toggle('selected', FILTRO_ESTOQUE_BAIXO);
+  renderCatalogoLista();
+}
+
 function renderCatalogoLista() {
   const termo = (document.getElementById('inp-busca-catalogo').value || '').toLowerCase();
   const wrap = document.getElementById('lista-catalogo');
@@ -420,6 +427,13 @@ function renderCatalogoLista() {
     String(p.ID_Peca || '').toLowerCase().includes(termo)
   );
   if (FILTRO_LINHA_CATALOGO !== 'Todas') filtradas = filtradas.filter(p => p.Linha === FILTRO_LINHA_CATALOGO);
+  if (FILTRO_ESTOQUE_BAIXO) {
+    filtradas = filtradas.filter(p => {
+      const atual = Number(p['Estoque_Atual'] || 0);
+      const minimo = Number(p['Estoque_Minimo'] || 0);
+      return atual <= minimo;
+    });
+  }
 
   wrap.innerHTML = '';
   if (filtradas.length === 0) {
@@ -1755,7 +1769,7 @@ function formatarEspessura(valor) {
   if (valor === undefined || valor === null || valor === '') return '';
   const n = Number(valor);
   if (isNaN(n)) return String(valor);
-  return n.toFixed(2).replace('.', ',');
+  return n.toFixed(2).replace('.', ',') + 'mm';
 }
 
 function esc(str) {
