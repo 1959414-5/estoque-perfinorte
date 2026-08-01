@@ -56,6 +56,15 @@ document.addEventListener('DOMContentLoaded', function () {
   carregarSolicitacoes();
   atualizarBotaoModoAdmin();
 
+  // Atualiza o catálogo sozinho a cada 45s, mas só se a aba Catálogo estiver
+  // aberta na hora — sem gastar chamada à toa enquanto a pessoa está em
+  // Nova Solicitação ou no Painel.
+  setInterval(function () {
+    if (document.getElementById('view-catalogo').classList.contains('view-active') && document.visibilityState === 'visible') {
+      carregarCatalogo();
+    }
+  }, 45000);
+
   const abaSalva = localStorage.getItem('abaAtual');
   if (abaSalva && document.getElementById('view-' + abaSalva)) {
     trocarView(abaSalva);
@@ -143,6 +152,9 @@ function montarChipsLinha(containerId, onChangeFn, filtroVarName) {
 // CATÁLOGO — carregamento
 // ---------------------------------------------------------
 function carregarCatalogo() {
+  const btn = document.getElementById('btn-atualizar-catalogo');
+  if (btn) btn.disabled = true;
+
   api('getCatalogo')
     .then(function (lista) {
       CATALOGO = lista || [];
@@ -153,10 +165,13 @@ function carregarCatalogo() {
       }
     })
     .catch(function (err) {
-      document.getElementById('lista-catalogo').innerHTML =
-        '<div class="empty-state"><div class="big">Erro ao carregar</div>' + esc(err.message) + '</div>';
+      if (!CATALOGO.length) {
+        document.getElementById('lista-catalogo').innerHTML =
+          '<div class="empty-state"><div class="big">Erro ao carregar</div>' + esc(err.message) + '</div>';
+      }
       toast('Erro ao carregar catálogo: ' + err.message);
-    });
+    })
+    .finally(function () { if (btn) btn.disabled = false; });
 }
 
 function rodarDiagnosticoCatalogo() {
