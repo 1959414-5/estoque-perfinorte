@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Catálogo — Perfinorte</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <span class="topbar-title">Catálogo de Peças</span>
+    <span class="topbar-sub">PERFINORTE · Consulta</span>
+  </header>
+
+  <main id="app">
+    <section class="view view-active">
+      <div class="search-box">
+        <input type="text" id="inp-busca" placeholder="Buscar peça por nome ou ID...">
+      </div>
+      <div id="linha-chips" class="filter-row"></div>
+      <div id="lista-catalogo"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <!-- ===================== LIGHTBOX: IMAGEM EM TELA CHEIA ===================== -->
+  <div id="modal-lightbox" class="lightbox hidden" onclick="fecharImagemFullscreen()">
+    <button class="lightbox-close" onclick="fecharImagemFullscreen()">×</button>
+    <div class="lightbox-rotate-controls" onclick="event.stopPropagation()">
+      <button type="button" onclick="rotacionarImagemFullscreen(-90)" title="Girar à esquerda">↺</button>
+      <button type="button" onclick="rotacionarImagemFullscreen(90)" title="Girar à direita">↻</button>
+    </div>
+    <img id="lightbox-img" src="" onclick="event.stopPropagation()">
+  </div>
+
+  <script src="../config.js"></script>
+  <script src="catalogo-publico.js"></script>
+</body>
+</html>
