@@ -1,5 +1,4 @@
-
-  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
 
   :root {
     --bg: #EEF0F3;
@@ -584,3 +583,12 @@
     #lista-catalogo { grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
   }
 
+  .print-progress-overlay {
+    position: fixed; inset: 0; background: rgba(27,36,49,0.55);
+    display: flex; align-items: center; justify-content: center; z-index: 300;
+  }
+  .print-progress-box {
+    background: #fff; padding: 20px 26px; border-radius: 14px;
+    font-weight: 600; font-size: 15px; color: var(--ink);
+    display: flex; align-items: center; gap: 10px;
+  }
