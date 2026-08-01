@@ -237,6 +237,10 @@
   }
 
   .catalogo-toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .btn-solto {
+    background: var(--surface); box-shadow: 0 1px 3px rgba(27,36,49,0.08);
+  }
+  .btn-solto:active { background: var(--bg); }
   .catalogo-toolbar .btn-secondary { flex: 1; min-width: 160px; }
 
   .catalog-card-quick-actions { display: flex; gap: 8px; margin-top: 8px; }
@@ -392,6 +396,7 @@
     white-space: nowrap;
   }
   .filter-chip.selected { background: var(--ink); border-color: var(--ink); color: #fff; }
+  #filtro-estoque-baixo.selected { background: #C77D00; border-color: #C77D00; color: #fff; }
 
   /* ---------- TICKET CARD (assinatura visual: etiqueta perfurada) ---------- */
   .ticket {
