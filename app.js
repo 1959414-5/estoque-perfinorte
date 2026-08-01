@@ -31,7 +31,6 @@ let MODO_PECA_ORIGEM = 'catalogo'; // 'catalogo' | 'solicitacao' — de onde abr
 let FILTRO_STATUS = 'Todos';
 let FILTRO_LINHA_PICKER = 'Todas';
 let FILTRO_LINHA_CATALOGO = 'Todas';
-let ID_DETALHE_ATUAL = null;
 let MOVIMENTO_PECA_ATUAL = null;
 let MOVIMENTO_TIPO_ATUAL = 'entrada';
 
@@ -54,6 +53,7 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('lista-catalogo').innerHTML = '<div class="empty-state">Carregando peças...</div>';
   carregarCatalogo();
   carregarSolicitacoes();
+  atualizarBotaoModoAdmin();
 
   const abaSalva = localStorage.getItem('abaAtual');
   if (abaSalva && document.getElementById('view-' + abaSalva)) {
@@ -491,7 +491,7 @@ let ITENS_SOLICITACAO = [];
 let PROXIMO_ITEM_UID = 1;
 
 function novoItemVazio() {
-  return { uid: 'it' + (PROXIMO_ITEM_UID++), peca: null, quantidade: 1, urgente: false, fotos: [] };
+  return { uid: 'it' + (PROXIMO_ITEM_UID++), peca: null, quantidade: 1, urgente: false, fotos: [], observacao: '' };
 }
 
 function acharItemSolicitacao(uid) {
@@ -517,6 +517,11 @@ function atualizarQtdItem(uid, valor) {
 function atualizarUrgenteItem(uid, valor) {
   const item = acharItemSolicitacao(uid);
   if (item) item.urgente = valor;
+}
+
+function atualizarObsItem(uid, valor) {
+  const item = acharItemSolicitacao(uid);
+  if (item) item.observacao = valor;
 }
 
 function abrirPickerParaItem(uid) {
@@ -565,7 +570,7 @@ function renderItemSolicitacaoCard(item, idx) {
     '<span class="peca-picker-btn-icon">' + pickerIcon + '</span>' +
     '<span class="peca-picker-btn-text">' +
     (p
-      ? '<span class="peca-picker-btn-title">' + esc(p.Nome_Peca) + '</span><br><span class="peca-picker-btn-sub">' + subInfo + '</span>'
+      ? '<span class="item-id-confirm">ID: ' + esc(p.ID_Peca) + '</span><span class="peca-picker-btn-title">' + esc(p.Nome_Peca) + '</span><br><span class="peca-picker-btn-sub">' + subInfo + '</span>'
       : '<span class="peca-picker-btn-placeholder">Toque para buscar a peça</span>') +
     '</span>' +
     '<span class="peca-picker-chevron">›</span>' +
@@ -593,6 +598,11 @@ function renderItemSolicitacaoCard(item, idx) {
     '<div class="photo-input"><input type="file" accept="image/*" multiple class="item-foto-input" data-uid="' + item.uid + '"> 🖼️ Escolher arquivo(s)</div>' +
     '</div>' +
     '<div class="photos-preview-row">' + fotosHtml + '</div>' +
+    '</div>' +
+
+    '<div class="field">' +
+    '<label>Observação desta peça (opcional)</label>' +
+    '<input type="text" value="' + esc(item.observacao) + '" placeholder="Opcional..." oninput="atualizarObsItem(\'' + item.uid + '\', this.value)">' +
     '</div>' +
     '</div>';
 }
@@ -647,6 +657,7 @@ async function enviarSolicitacao(e) {
     for (let i = 0; i < ITENS_SOLICITACAO.length; i++) {
       const item = ITENS_SOLICITACAO[i];
       btn.innerHTML = '<span class="spinner"></span> Enviando ' + (i + 1) + '/' + ITENS_SOLICITACAO.length + '...';
+      const obsCombinada = [observacao, item.observacao].filter(Boolean).join(' | ');
       await api('salvarSolicitacao', {
         dados: {
           pedidoId: pedidoId,
@@ -654,7 +665,7 @@ async function enviarSolicitacao(e) {
           idPeca: item.peca.ID_Peca,
           nomePeca: item.peca.Nome_Peca,
           quantidade: item.quantidade,
-          observacao: observacao,
+          observacao: obsCombinada,
           urgente: item.urgente,
           fotos: item.fotos
         }
@@ -676,10 +687,17 @@ async function enviarSolicitacao(e) {
 }
 
 // ---------------------------------------------------------
-// PAINEL
+// PAINEL — agrupado por PEDIDO (vários itens juntos)
 // ---------------------------------------------------------
+const STATUS_ORDEM = ['Solicitado', 'Em produção', 'Pronto', 'Entregue'];
+let PEDIDOS_CACHE = [];
+let PEDIDO_DETALHE_ATUAL = null;
+let MODO_ADMIN = localStorage.getItem('modoAdmin') === 'true';
+
 function carregarSolicitacoes() {
-  api('getSolicitacoes', { filtroStatus: FILTRO_STATUS })
+  // Busca tudo (sem filtrar por status no servidor) — o filtro por status
+  // agora é aplicado no nível do PEDIDO depois de agrupar os itens.
+  api('getSolicitacoes', {})
     .then(function (lista) {
       SOLICITACOES = lista || [];
       renderPainel();
@@ -695,7 +713,7 @@ function setFiltro(status, el) {
   FILTRO_STATUS = status;
   document.querySelectorAll('#status-filter-row .filter-chip').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
-  carregarSolicitacoes();
+  renderPainel();
 }
 
 function pecaThumbPorId(idPeca) {
@@ -703,143 +721,294 @@ function pecaThumbPorId(idPeca) {
   return p ? p.Imagem_URL : null;
 }
 
-function renderPainel() {
-  const wrap = document.getElementById('lista-painel');
-  wrap.innerHTML = '';
-  if (SOLICITACOES.length === 0) {
-    wrap.innerHTML = '<div class="empty-state"><div class="big">Nada por aqui</div>Sem solicitações nesse filtro.</div>';
+// ---- Modo Bárbara (PIN) ----
+function alternarModoAdmin() {
+  if (MODO_ADMIN) {
+    MODO_ADMIN = false;
+    localStorage.removeItem('modoAdmin');
+    toast('Modo Bárbara desativado');
+    atualizarBotaoModoAdmin();
+    renderPainel();
     return;
   }
-  SOLICITACOES.forEach(s => {
-    const urgente = s.Urgente === true;
+  const pin = prompt('Digite o PIN pra liberar os controles de status:');
+  if (!pin) return;
+  api('verificarPin', { pin: pin })
+    .then(function (ok) {
+      if (ok) {
+        MODO_ADMIN = true;
+        localStorage.setItem('modoAdmin', 'true');
+        toast('Modo Bárbara ativado');
+      } else {
+        toast('PIN incorreto');
+      }
+      atualizarBotaoModoAdmin();
+      renderPainel();
+    })
+    .catch(function (err) { toast('Erro: ' + err.message); });
+}
+
+function atualizarBotaoModoAdmin() {
+  const btn = document.getElementById('btn-modo-admin');
+  if (!btn) return;
+  btn.textContent = MODO_ADMIN ? '🔓 Modo Bárbara ativo' : '🔒 Liberar controles';
+  btn.classList.toggle('ativo', MODO_ADMIN);
+}
+
+// ---- Agrupamento por pedido ----
+function agruparPedidos(lista) {
+  const mapa = {};
+  lista.forEach(s => {
+    const pid = s.ID_Pedido || s.ID_Solicitacao; // registros antigos sem ID_Pedido caem sozinhos
+    if (!mapa[pid]) mapa[pid] = { pedidoId: pid, solicitante: s.Solicitante, dataHora: s.Data_Hora, itens: [] };
+    mapa[pid].itens.push(s);
+    if (new Date(s.Data_Hora) < new Date(mapa[pid].dataHora)) mapa[pid].dataHora = s.Data_Hora;
+  });
+  return Object.values(mapa);
+}
+
+function statusResumoPedido(pedido) {
+  let pior = STATUS_ORDEM.length - 1;
+  pedido.itens.forEach(it => {
+    const idx = STATUS_ORDEM.indexOf(it.Status);
+    if (idx !== -1 && idx < pior) pior = idx;
+  });
+  return STATUS_ORDEM[pior];
+}
+
+function pedidoTemUrgente(pedido) {
+  return pedido.itens.some(it => it.Urgente === true);
+}
+
+function renderPainel() {
+  const wrap = document.getElementById('lista-painel');
+  PEDIDOS_CACHE = agruparPedidos(SOLICITACOES);
+
+  let pedidos = PEDIDOS_CACHE;
+  if (FILTRO_STATUS !== 'Todos') {
+    pedidos = pedidos.filter(pd => statusResumoPedido(pd) === FILTRO_STATUS);
+  }
+  pedidos = pedidos.slice().sort((a, b) => {
+    const ua = pedidoTemUrgente(a) ? 1 : 0;
+    const ub = pedidoTemUrgente(b) ? 1 : 0;
+    if (ua !== ub) return ub - ua;
+    return new Date(b.dataHora) - new Date(a.dataHora);
+  });
+
+  wrap.innerHTML = '';
+  if (pedidos.length === 0) {
+    wrap.innerHTML = '<div class="empty-state"><div class="big">Nada por aqui</div>Sem pedidos nesse filtro.</div>';
+    return;
+  }
+  pedidos.forEach(pd => {
+    const urgente = pedidoTemUrgente(pd);
+    const statusGeral = statusResumoPedido(pd);
+    const nomes = pd.itens.slice(0, 2).map(it => esc(it.Nome_Peca)).join(', ');
+    const resto = pd.itens.length > 2 ? ' + ' + (pd.itens.length - 2) : '';
     const div = document.createElement('div');
     div.className = 'ticket' + (urgente ? ' is-urgent' : '');
-    div.addEventListener('click', () => abrirDetalhe(s.ID_Solicitacao));
+    div.addEventListener('click', () => abrirDetalhePedido(pd.pedidoId));
     div.innerHTML =
       '<div class="ticket-head">' +
-      '<div style="display:flex; align-items:center; gap:10px; min-width:0;">' +
-      thumbHtml(pecaThumbPorId(s.ID_Peca), 'thumb') +
-      '<div style="min-width:0;"><div class="ticket-title">' + esc(s.Nome_Peca) + '</div>' +
-      '<div class="ticket-sub">' + esc(s.ID_Solicitacao) + ' · ' + tempoRelativo(s.Data_Hora) + '</div></div>' +
-      '</div>' +
+      '<div style="min-width:0;"><div class="ticket-title">' + esc(pd.solicitante) + '</div>' +
+      '<div class="ticket-sub">' + pd.itens.length + ' peça' + (pd.itens.length > 1 ? 's' : '') + ' · ' + tempoRelativo(pd.dataHora) + '</div></div>' +
       '<div class="ticket-badges">' +
       (urgente ? '<span class="urgent-badge">Urgente</span>' : '') +
-      '<span class="status-badge" data-s="' + esc(s.Status) + '">' + esc(s.Status) + '</span>' +
+      '<span class="status-badge" data-s="' + esc(statusGeral) + '">' + esc(statusGeral) + '</span>' +
       '</div></div>' +
       '<div class="ticket-perf"></div>' +
-      '<div class="ticket-body">' +
-      '<span>Qtd: <b>' + esc(s.Quantidade) + '</b></span>' +
-      '<span>Por: <b>' + esc(s.Solicitante) + '</b></span>' +
-      '</div>';
+      '<div class="ticket-body"><span>' + nomes + resto + '</span></div>';
     wrap.appendChild(div);
   });
 }
 
-function abrirDetalhe(id) {
-  const s = SOLICITACOES.find(x => x.ID_Solicitacao === id);
-  if (!s) return;
-  ID_DETALHE_ATUAL = id;
-  const urgente = s.Urgente === true;
+// ---- Detalhe do pedido (lista de itens dentro) ----
+function abrirDetalhePedido(pedidoId) {
+  PEDIDO_DETALHE_ATUAL = pedidoId;
+  renderDetalhePedidoConteudo();
+  document.getElementById('modal-detalhe-pedido').classList.remove('hidden');
+}
 
-  document.getElementById('detalhe-titulo').textContent = s.Nome_Peca;
-  document.getElementById('detalhe-id').textContent = s.ID_Solicitacao;
+function fecharDetalhePedido() {
+  document.getElementById('modal-detalhe-pedido').classList.add('hidden');
+}
 
-  let infoHtml = '';
-  const thumbUrl = pecaThumbPorId(s.ID_Peca);
-  if (thumbUrl) infoHtml += '<img src="' + thumbUrl + '" onclick="abrirImagemFullscreen(\'' + thumbUrl.replace(/'/g, "\\'") + '\')" style="width:100%; max-height:180px; object-fit:cover; border-radius:10px; margin-bottom:12px; cursor:pointer;">';
+function renderDetalhePedidoConteudo() {
+  const pd = PEDIDOS_CACHE.find(x => x.pedidoId === PEDIDO_DETALHE_ATUAL);
+  if (!pd) { fecharDetalhePedido(); return; }
 
-  infoHtml += '<div class="field"><label>Quantidade</label>' +
-    '<div style="display:flex; gap:8px;">' +
-    '<input type="number" id="detalhe-qtd" value="' + s.Quantidade + '" min="1" style="flex:1; padding:10px; border:1.5px solid var(--line); border-radius:8px;">' +
-    '<button type="button" class="btn-secondary" style="width:auto; margin:0; padding:10px 14px;" onclick="salvarQtdDetalhe()">Salvar</button>' +
-    '</div></div>';
+  document.getElementById('pedido-detalhe-titulo').textContent = pd.solicitante;
+  document.getElementById('pedido-detalhe-sub').textContent =
+    pd.itens.length + ' peça' + (pd.itens.length > 1 ? 's' : '') + ' · ' + tempoRelativo(pd.dataHora);
 
-  infoHtml += '<label class="urgent-label" style="margin-bottom:14px;">' +
-    '<input type="checkbox" id="detalhe-urgente" ' + (urgente ? 'checked' : '') + ' onchange="toggleUrgenteDetalhe(this.checked)">' +
-    '<span class="urgent-box">🔴 ' + (urgente ? 'Marcado como urgente' : 'Marcar como urgente') + '</span></label>';
+  document.getElementById('pedido-admin-actions').style.display = MODO_ADMIN ? 'block' : 'none';
 
-  infoHtml += '<div class="ticket-body" style="padding:0 0 10px;">';
-  infoHtml += '<span>Solicitante: <b>' + esc(s.Solicitante) + '</b></span>';
-  infoHtml += '</div>';
-  if (s.Observacao) infoHtml += '<p style="font-size:13.5px; color:var(--ink-soft);">' + esc(s.Observacao) + '</p>';
+  document.getElementById('pedido-itens-lista').innerHTML = pd.itens.map(renderItemPedidoDetalhe).join('');
+}
 
-  if (s.Foto_URL) {
-    const urlsFotos = String(s.Foto_URL).split('\n').filter(Boolean);
-    infoHtml += '<div class="photos-preview-row" style="margin-top:8px;">' +
-      urlsFotos.map(url =>
-        '<div class="photo-preview-item" style="width:84px; height:84px;">' +
-        '<img src="' + url + '" style="cursor:zoom-in;" onclick="abrirImagemFullscreen(\'' + url.replace(/'/g, "\\'") + '\')">' +
-        '</div>'
-      ).join('') + '</div>';
+function renderItemPedidoDetalhe(it) {
+  const urgente = it.Urgente === true;
+  const thumbUrl = pecaThumbPorId(it.ID_Peca);
+
+  let html = '<div class="pedido-item-row">';
+  html += '<div class="pedido-item-head">';
+  html += thumbHtml(thumbUrl, 'thumb');
+  html += '<div style="flex:1; min-width:0;">';
+  html += '<div class="catalog-card-id" style="margin-bottom:2px;">' + esc(it.ID_Peca) + '</div>';
+  html += '<div style="font-weight:700; font-size:14px;">' + esc(it.Nome_Peca) + '</div>';
+  html += '</div>';
+  html += (urgente ? '<span class="urgent-badge">Urgente</span>' : '') +
+    '<span class="status-badge" data-s="' + esc(it.Status) + '">' + esc(it.Status) + '</span>';
+  html += '</div>';
+
+  html += '<div class="ticket-body" style="padding:8px 0 4px;"><span>Qtd: <b>' + esc(it.Quantidade) + '</b></span></div>';
+  if (it.Observacao) html += '<p style="font-size:13px; color:var(--ink-soft); margin:2px 0 6px;">' + esc(it.Observacao) + '</p>';
+
+  if (it.Foto_URL) {
+    const urls = String(it.Foto_URL).split('\n').filter(Boolean);
+    html += '<div class="photos-preview-row" style="margin-bottom:6px;">' +
+      urls.map(url => '<div class="photo-preview-item" style="width:64px; height:64px;">' +
+        '<img src="' + url + '" style="cursor:zoom-in;" onclick="abrirImagemFullscreen(\'' + url.replace(/'/g, "\\'") + '\')"></div>').join('') +
+      '</div>';
   }
 
-  document.getElementById('detalhe-info').innerHTML = infoHtml;
+  if (MODO_ADMIN) {
+    html += '<div style="display:flex; gap:6px; margin:6px 0;">';
+    html += '<input type="number" min="1" value="' + it.Quantidade + '" id="qtd-item-' + it.ID_Solicitacao + '" style="flex:1; padding:8px; border:1.5px solid var(--line); border-radius:8px;">';
+    html += '<button type="button" class="btn-secondary" style="width:auto; margin:0; padding:8px 12px;" onclick="salvarQtdItemPedido(\'' + it.ID_Solicitacao + '\')">Salvar qtd</button>';
+    html += '</div>';
+    html += '<label class="urgent-label" style="margin-bottom:8px;">' +
+      '<input type="checkbox" ' + (urgente ? 'checked' : '') + ' onchange="toggleUrgenteItemPedido(\'' + it.ID_Solicitacao + '\', this.checked)">' +
+      '<span class="urgent-box">🔴 ' + (urgente ? 'Marcado como urgente' : 'Marcar como urgente') + '</span></label>';
+    html += '<div class="status-actions">';
+    CONFIG.status.forEach(st => {
+      html += '<button type="button" class="' + (st === it.Status ? 'current' : '') + '" onclick="mudarStatusItemPedido(\'' + it.ID_Solicitacao + '\', \'' + st + '\')">' + st + '</button>';
+    });
+    html += '</div>';
+  }
 
-  const statusWrap = document.getElementById('detalhe-status-actions');
-  statusWrap.innerHTML = '';
-  CONFIG.status.forEach(st => {
-    const b = document.createElement('button');
-    b.textContent = st;
-    if (st === s.Status) b.classList.add('current');
-    b.addEventListener('click', () => mudarStatusDetalhe(st));
-    statusWrap.appendChild(b);
-  });
-
-  carregarHistorico(id);
-  document.getElementById('modal-detalhe').classList.remove('hidden');
+  html += '</div>';
+  return html;
 }
 
-function fecharModalDetalhe() {
-  document.getElementById('modal-detalhe').classList.add('hidden');
+function acharItemPorId(idSolicitacao) {
+  return SOLICITACOES.find(s => s.ID_Solicitacao === idSolicitacao);
 }
 
-function mudarStatusDetalhe(novoStatus) {
-  const solicitante = localStorage.getItem('nomeUsuario') || 'Desconhecido';
-  api('atualizarStatus', { idSolicitacao: ID_DETALHE_ATUAL, novoStatus: novoStatus, usuario: solicitante })
+function exigirModoAdmin() {
+  if (!MODO_ADMIN) { toast('Só a Bárbara pode fazer isso. Toque em 🔒 pra liberar.'); return false; }
+  return true;
+}
+
+function mudarStatusItemPedido(idSolicitacao, novoStatus) {
+  if (!exigirModoAdmin()) return;
+  api('atualizarStatus', { idSolicitacao: idSolicitacao, novoStatus: novoStatus, usuario: 'Bárbara' })
     .then(function () {
       toast('Status atualizado: ' + novoStatus);
-      fecharModalDetalhe();
-      carregarSolicitacoes();
+      const it = acharItemPorId(idSolicitacao);
+      if (it) it.Status = novoStatus;
+      renderDetalhePedidoConteudo();
+      renderPainel();
     })
     .catch(function (err) { toast('Erro: ' + err.message); });
 }
 
-function toggleUrgenteDetalhe(marcado) {
-  const solicitante = localStorage.getItem('nomeUsuario') || 'Desconhecido';
-  api('atualizarUrgente', { idSolicitacao: ID_DETALHE_ATUAL, urgente: marcado, usuario: solicitante })
+function toggleUrgenteItemPedido(idSolicitacao, marcado) {
+  if (!exigirModoAdmin()) return;
+  api('atualizarUrgente', { idSolicitacao: idSolicitacao, urgente: marcado, usuario: 'Bárbara' })
     .then(function () {
       toast(marcado ? 'Marcado como urgente' : 'Urgente removido');
-      carregarSolicitacoes();
+      const it = acharItemPorId(idSolicitacao);
+      if (it) it.Urgente = marcado;
+      renderDetalhePedidoConteudo();
+      renderPainel();
     })
     .catch(function (err) { toast('Erro: ' + err.message); });
 }
 
-function salvarQtdDetalhe() {
-  const novaQtd = Number(document.getElementById('detalhe-qtd').value);
-  const solicitante = localStorage.getItem('nomeUsuario') || 'Desconhecido';
+function salvarQtdItemPedido(idSolicitacao) {
+  if (!exigirModoAdmin()) return;
+  const novaQtd = Number(document.getElementById('qtd-item-' + idSolicitacao).value);
   if (!novaQtd || novaQtd <= 0) { toast('Quantidade inválida'); return; }
-  api('atualizarQuantidade', { idSolicitacao: ID_DETALHE_ATUAL, novaQtd: novaQtd, usuario: solicitante })
+  api('atualizarQuantidade', { idSolicitacao: idSolicitacao, novaQtd: novaQtd, usuario: 'Bárbara' })
     .then(function () {
       toast('Quantidade atualizada');
-      carregarSolicitacoes();
-      carregarHistorico(ID_DETALHE_ATUAL);
+      const it = acharItemPorId(idSolicitacao);
+      if (it) it.Quantidade = novaQtd;
+      renderDetalhePedidoConteudo();
+      renderPainel();
     })
     .catch(function (err) { toast('Erro: ' + err.message); });
 }
 
-function carregarHistorico(id) {
-  api('getHistorico', { idSolicitacao: id })
-    .then(function (historico) {
-      const wrap = document.getElementById('detalhe-historico');
-      if (!historico.length) { wrap.innerHTML = '<div class="history-item">Sem alterações registradas.</div>'; return; }
-      wrap.innerHTML = historico.map(h =>
-        '<div class="history-item"><b>' + esc(h.usuario) + '</b> alterou ' + esc(h.campo) +
-        (h.anterior !== '' ? ' de "' + esc(h.anterior) + '"' : '') + ' para "' + esc(h.novo) + '" · ' + tempoRelativo(h.data) + '</div>'
-      ).join('');
-    })
-    .catch(function (err) {
-      document.getElementById('detalhe-historico').innerHTML = '<div class="history-item">Erro ao carregar histórico: ' + esc(err.message) + '</div>';
-    });
+// ---- Confirmação por imagem (WhatsApp) ----
+async function enviarConfirmacaoPedido() {
+  if (!exigirModoAdmin()) return;
+  const pd = PEDIDOS_CACHE.find(x => x.pedidoId === PEDIDO_DETALHE_ATUAL);
+  if (!pd) return;
+  if (typeof html2canvas === 'undefined') { toast('Biblioteca de imagem não carregou. Recarregue a página.'); return; }
+
+  const receiptEl = montarReceiptPedido(pd);
+  document.body.appendChild(receiptEl);
+
+  try {
+    const canvas = await html2canvas(receiptEl, { scale: 2, backgroundColor: '#ffffff' });
+    document.body.removeChild(receiptEl);
+
+    canvas.toBlob(async function (blob) {
+      const file = new File([blob], 'pedido-' + pd.pedidoId + '.png', { type: 'image/png' });
+      let compartilhado = false;
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: 'Pedido — ' + pd.solicitante, text: 'Confirmação do pedido' });
+          compartilhado = true;
+        } catch (e) { /* usuário cancelou o compartilhamento — segue o fluxo normal */ }
+      }
+      if (!compartilhado) {
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        toast('Imagem gerada numa aba nova — salve e envie pelo WhatsApp.');
+      }
+      await avancarStatusPedidoParaProducao(pd);
+    }, 'image/png');
+  } catch (err) {
+    if (document.body.contains(receiptEl)) document.body.removeChild(receiptEl);
+    toast('Erro ao gerar imagem: ' + err.message);
+  }
+}
+
+function montarReceiptPedido(pd) {
+  const div = document.createElement('div');
+  div.style.cssText = 'position:fixed; left:-9999px; top:0; width:520px; background:#fff; padding:26px; font-family:Arial,Helvetica,sans-serif;';
+  div.innerHTML =
+    '<img src="' + LOGO_PERFINORTE_B64 + '" style="height:34px; display:block; margin-bottom:16px;">' +
+    '<div style="font-size:20px; font-weight:800; color:#1a1a1a; margin-bottom:2px;">Pedido confirmado</div>' +
+    '<div style="font-size:13px; color:#666; margin-bottom:18px;">Solicitante: ' + esc(pd.solicitante) + ' · ' + new Date(pd.dataHora).toLocaleString('pt-BR') + '</div>' +
+    pd.itens.map(function (it) {
+      return '<div style="border-top:1px solid #eee; padding:12px 0;">' +
+        '<div style="font-weight:700; font-size:14.5px; color:#1a1a1a;">' + esc(it.Nome_Peca) + (it.Urgente ? ' <span style="color:#DC2626;">🔴 URGENTE</span>' : '') + '</div>' +
+        '<div style="font-size:12.5px; color:#666; margin-top:2px;">ID: ' + esc(it.ID_Peca) + ' &nbsp;·&nbsp; Quantidade: ' + esc(it.Quantidade) + '</div>' +
+        (it.Observacao ? '<div style="font-size:12px; color:#888; margin-top:3px;">Obs: ' + esc(it.Observacao) + '</div>' : '') +
+        '</div>';
+    }).join('') +
+    '<div style="margin-top:16px; font-size:10.5px; color:#aaa;">Gerado pelo Estoque de Peças — Perfinorte</div>';
+  return div;
+}
+
+async function avancarStatusPedidoParaProducao(pd) {
+  const idxAlvo = STATUS_ORDEM.indexOf('Em produção');
+  for (const it of pd.itens) {
+    const idxAtual = STATUS_ORDEM.indexOf(it.Status);
+    if (idxAtual < idxAlvo) {
+      try {
+        await api('atualizarStatus', { idSolicitacao: it.ID_Solicitacao, novoStatus: 'Em produção', usuario: 'Bárbara' });
+        it.Status = 'Em produção';
+      } catch (e) { /* segue tentando os outros itens mesmo se um falhar */ }
+    }
+  }
+  toast('Pedido marcado como "Em produção"');
+  renderDetalhePedidoConteudo();
+  renderPainel();
 }
 
 // ---------------------------------------------------------
