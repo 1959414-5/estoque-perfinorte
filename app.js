@@ -758,6 +758,13 @@ function abrirScanQR() {
   document.getElementById('scan-fallback').style.display = 'none';
   document.getElementById('scan-video-wrap').style.display = 'block';
   document.getElementById('modal-scan-qr').classList.remove('hidden');
+
+  if (typeof jsQR === 'undefined') {
+    // Biblioteca de leitura de QR não carregou (conexão lenta, CDN fora do ar, etc).
+    // Não adianta abrir a câmera se não dá pra decodificar o que ela vê.
+    ativarFallbackFoto('A biblioteca de leitura de QR ainda não carregou. Verifique sua internet e recarregue a página.');
+    return;
+  }
   iniciarCameraScan();
 }
 
@@ -833,6 +840,10 @@ function confirmarCodigoManual() {
 function handleFotoQR(e) {
   const file = e.target.files[0];
   if (!file) return;
+  if (typeof jsQR === 'undefined') {
+    document.getElementById('scan-qr-status').textContent = 'A biblioteca de leitura de QR não carregou. Recarregue a página.';
+    return;
+  }
   document.getElementById('scan-qr-status').textContent = 'Lendo QR code...';
   const reader = new FileReader();
   reader.onload = function (ev) {
@@ -956,21 +967,18 @@ function imprimirEtiquetasCatalogo() {
 }
 
 function montarEImprimirEtiquetas(lista) {
-  // abre a janela JÁ no clique (preserva o gesto do usuário, evita bloqueio de pop-up)
-  const win = window.open('', '_blank');
-  if (!win) { toast('O navegador bloqueou a janela de impressão. Permita pop-ups pra este site.'); return; }
-  win.document.write('<p style="font-family:sans-serif;padding:24px;color:#555;">Gerando etiquetas... <span id="prog">0/' + lista.length + '</span></p>');
+  mostrarProgressoImpressao(0, lista.length);
 
   const qrDataUrls = new Array(lista.length);
   let i = 0;
 
   function gerarProximo() {
     if (i >= lista.length) {
-      escreverJanelaEtiquetas(win, lista, qrDataUrls);
+      imprimirViaIframe(lista, qrDataUrls);
       return;
     }
     // Gera um QR isolado, captura a imagem, e destrói o elemento imediatamente
-    // (isso evita acumular centenas de nodes/canvas na memória, que travava em ~90).
+    // (evita acumular centenas de nodes/canvas na memória).
     const holder = document.createElement('div');
     holder.style.position = 'fixed';
     holder.style.left = '-9999px';
@@ -981,9 +989,9 @@ function montarEImprimirEtiquetas(lista) {
       const canvas = holder.querySelector('canvas');
       const img = holder.querySelector('img');
       qrDataUrls[i] = canvas ? canvas.toDataURL('image/png') : (img ? img.src : '');
-      document.body.removeChild(holder); // libera o node imediatamente
+      document.body.removeChild(holder);
       i++;
-      try { win.document.getElementById('prog').textContent = i + '/' + lista.length; } catch (e) {}
+      mostrarProgressoImpressao(i, lista.length);
       gerarProximo();
     }, 0);
   }
@@ -991,7 +999,22 @@ function montarEImprimirEtiquetas(lista) {
   gerarProximo();
 }
 
-function escreverJanelaEtiquetas(win, lista, qrDataUrls) {
+function mostrarProgressoImpressao(atual, total) {
+  let overlay = document.getElementById('print-progress-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'print-progress-overlay';
+    overlay.className = 'print-progress-overlay';
+    overlay.innerHTML = '<div class="print-progress-box"><span class="spinner" style="border-top-color:var(--accent); border-color:rgba(0,0,0,0.15);"></span> Gerando etiquetas... <span id="print-progress-num"></span></div>';
+    document.body.appendChild(overlay);
+  }
+  document.getElementById('print-progress-num').textContent = atual + '/' + total;
+  if (atual >= total) {
+    setTimeout(() => { const o = document.getElementById('print-progress-overlay'); if (o) o.remove(); }, 400);
+  }
+}
+
+function imprimirViaIframe(lista, qrDataUrls) {
   const largura = p => p['Largura do Produto'];
   const comprimento = p => p['Comprimento do Produto'];
 
@@ -1022,13 +1045,33 @@ function escreverJanelaEtiquetas(win, lista, qrDataUrls) {
     '.label-id { font-size: 19pt; font-weight: 800; color: #1a1a1a; line-height: 1.15; }' +
     '.label-name { font-size: 10.5pt; font-weight: 700; color: #1a1a1a; margin-top: 1mm; line-height: 1.2; }' +
     '.label-meta { font-size: 7.5pt; color: #555; margin-top: 0.5mm; }' +
-    '</style></head><body>' + labelsHtml +
-    '<script>window.onload=function(){setTimeout(function(){window.print();},250);};</' + 'script>' +
-    '</body></html>';
+    '</style></head><body>' + labelsHtml + '</body></html>';
 
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
+  // iframe escondido na PRÓPRIA aba — ao contrário de window.open(), nunca fica
+  // em segundo plano, então o navegador (Safari no iPhone principalmente) não
+  // pausa a geração no meio do caminho.
+  let iframe = document.getElementById('print-iframe');
+  if (iframe) iframe.remove();
+  iframe = document.createElement('iframe');
+  iframe.id = 'print-iframe';
+  iframe.style.cssText = 'position:fixed; right:0; bottom:0; width:0; height:0; border:none;';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  iframe.onload = function () {
+    setTimeout(function () {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (e) {
+        toast('Erro ao abrir impressão: ' + e.message);
+      }
+    }, 150);
+  };
 }
 
 // ---------------------------------------------------------
@@ -1050,4 +1093,3 @@ function tempoRelativo(isoStr) {
   const d = Math.floor(h / 24);
   return d + 'd atrás';
 }
-
