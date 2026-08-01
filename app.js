@@ -548,6 +548,19 @@ function acharItemSolicitacao(uid) {
   return ITENS_SOLICITACAO.find(it => it.uid === uid);
 }
 
+function abrirFormNova() {
+  ITENS_SOLICITACAO = [novoItemVazio()];
+  renderItensSolicitacao();
+  document.getElementById('inp-observacao').value = '';
+  document.getElementById('btn-abrir-nova').classList.add('hidden');
+  document.getElementById('form-nova').classList.remove('hidden');
+}
+
+function fecharFormNova() {
+  document.getElementById('form-nova').classList.add('hidden');
+  document.getElementById('btn-abrir-nova').classList.remove('hidden');
+}
+
 function adicionarItemSolicitacao() {
   ITENS_SOLICITACAO.push(novoItemVazio());
   renderItensSolicitacao();
@@ -726,6 +739,7 @@ async function enviarSolicitacao(e) {
     ITENS_SOLICITACAO = [novoItemVazio()];
     renderItensSolicitacao();
     document.getElementById('sel-solicitante').value = solicitante;
+    fecharFormNova();
     btn.disabled = false;
     btn.textContent = 'Enviar solicitação';
     trocarView('painel');
@@ -739,7 +753,7 @@ async function enviarSolicitacao(e) {
 // ---------------------------------------------------------
 // PAINEL — agrupado por PEDIDO (vários itens juntos)
 // ---------------------------------------------------------
-const STATUS_ORDEM = ['Solicitado', 'Em produção', 'Pronto', 'Entregue'];
+const STATUS_ORDEM = ['Solicitado', 'Em produção', 'Entregue'];
 let PEDIDOS_CACHE = [];
 let PEDIDO_DETALHE_ATUAL = null;
 let MODO_ADMIN = localStorage.getItem('modoAdmin') === 'true';
@@ -759,10 +773,20 @@ function carregarSolicitacoes() {
     });
 }
 
+function alternarFiltrosPainel() {
+  document.getElementById('painel-filtros-wrap').classList.toggle('hidden');
+}
+
+function atualizarBadgeFiltros() {
+  const ativo = FILTRO_STATUS !== 'Todos' || FILTRO_PERIODO !== 'hoje';
+  document.getElementById('badge-filtros-ativos').classList.toggle('hidden', !ativo);
+}
+
 function setFiltro(status, el) {
   FILTRO_STATUS = status;
   document.querySelectorAll('#status-filter-row .filter-chip').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
+  atualizarBadgeFiltros();
   renderPainel();
 }
 
@@ -770,6 +794,7 @@ function setFiltroPeriodo(periodo, el) {
   FILTRO_PERIODO = periodo;
   document.querySelectorAll('#periodo-filter-row .filter-chip').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
+  atualizarBadgeFiltros();
   renderPainel();
 }
 
