@@ -1085,43 +1085,46 @@ function imprimirViaIframe(lista, qrDataUrls) {
     const dims = (largura(p) || comprimento(p)) ? (esc(largura(p) || '') + '×' + esc(comprimento(p) || '') + 'mm') : '';
     const temFoto = !!p.Imagem_URL;
     return '<div class="label">' +
+      '<div class="label-top">' +
       '<div class="label-qr-wrap">' +
       (qrDataUrls[i] ? '<img class="label-qr" src="' + qrDataUrls[i] + '">' : '<div class="label-qr-vazio">QR indisponível<br>pra esta peça</div>') +
       '</div>' +
-      '<div class="label-content">' +
+      '<div class="label-info">' +
       '<div class="label-header">' +
       '<div class="label-id">' + esc(p.ID_Peca) + '</div>' +
       (temFoto ? '<img class="label-photo" src="' + p.Imagem_URL + '">' : '') +
       '</div>' +
-      '<div class="label-name">' + esc(p.Nome_Peca) + '</div>' +
       '<div class="label-meta-block">' +
       (p.MP ? '<div class="label-meta">MP: ' + esc(p.MP) + (p.Espessura ? ' de ' + esc(formatarEspessura(p.Espessura)) : '') + '</div>' : '') +
       (dims ? '<div class="label-meta">' + dims + '</div>' : '') +
+      (p.Servicos ? '<div class="label-meta">Serviço: ' + esc(p.Servicos) + '</div>' : '') +
       '</div>' +
-      '<div class="label-footer">' +
-      '<div class="label-servico">' + (p.Servicos ? 'Serviço: ' + esc(p.Servicos) : '') + '</div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="label-bottom">' +
+      '<div class="label-name">' + esc(p.Nome_Peca) + '</div>' +
       '<img class="label-logo" src="' + LOGO_PERFINORTE_B64 + '">' +
       '</div>' +
-      '</div></div>';
+      '</div>';
   }).join('');
 
   const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Etiquetas</title><style>' +
     '@page { size: 107mm 48mm; margin: 0; }' +
     '* { box-sizing: border-box; }' +
     'body { margin: 0; font-family: Arial, Helvetica, sans-serif; }' +
-    '.label { width: 107mm; height: 48mm; padding: 3mm; display: flex; gap: 2.5mm; page-break-after: always; overflow: hidden; }' +
-    '.label-qr-wrap { flex: none; width: 30mm; display: flex; align-items: center; justify-content: center; }' +
-    '.label-qr { width: 30mm; height: 30mm; display: block; }' +
-    '.label-qr-vazio { width: 30mm; height: 30mm; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 6.5pt; color: #999; border: 1px dashed #ccc; }' +
-    '.label-content { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100%; }' +
+    '.label { width: 107mm; height: 48mm; padding: 3mm; display: flex; flex-direction: column; gap: 1.5mm; page-break-after: always; overflow: hidden; }' +
+    '.label-top { display: flex; gap: 2.5mm; flex: 1; min-height: 0; }' +
+    '.label-qr-wrap { flex: none; width: 29mm; display: flex; align-items: center; justify-content: center; }' +
+    '.label-qr { width: 29mm; height: 29mm; display: block; }' +
+    '.label-qr-vazio { width: 29mm; height: 29mm; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 6.5pt; color: #999; border: 1px dashed #ccc; }' +
+    '.label-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }' +
     '.label-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 2mm; }' +
-    '.label-id { font-size: 18pt; font-weight: 800; color: #1a1a1a; line-height: 1.1; }' +
-    '.label-photo { width: 26mm; height: 26mm; object-fit: cover; border-radius: 1.5mm; border: 0.3mm solid #ddd; flex: none; }' +
-    '.label-name { font-size: 9.5pt; font-weight: 700; color: #1a1a1a; margin-top: 1mm; line-height: 1.15; }' +
-    '.label-meta-block { margin-top: 1mm; }' +
-    '.label-meta { font-size: 7pt; color: #555; margin-top: 0.4mm; }' +
-    '.label-footer { display: flex; align-items: center; gap: 2mm; margin-top: auto; }' +
-    '.label-servico { flex: 1; min-width: 0; font-size: 7pt; color: #555; }' +
+    '.label-id { font-size: 16pt; font-weight: 800; color: #1a1a1a; line-height: 1.1; }' +
+    '.label-photo { width: 15mm; height: 15mm; object-fit: cover; border-radius: 1.5mm; border: 0.3mm solid #ddd; flex: none; }' +
+    '.label-meta-block { margin-top: 1.5mm; }' +
+    '.label-meta { font-size: 7pt; color: #555; margin-top: 0.6mm; }' +
+    '.label-bottom { display: flex; align-items: flex-end; gap: 2mm; flex: none; border-top: 0.3mm solid #eee; padding-top: 1mm; }' +
+    '.label-name { flex: 1; min-width: 0; font-size: 12.5pt; font-weight: 800; color: #1a1a1a; line-height: 1.2; }' +
     '.label-logo { height: 5mm; flex: none; display: block; }' +
     '</style></head><body>' + labelsHtml + '</body></html>';
 
