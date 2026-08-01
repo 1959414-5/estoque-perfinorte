@@ -1026,8 +1026,27 @@ function montarEImprimirEtiquetas(lista) {
       imprimirViaIframe(lista, qrDataUrls);
       return;
     }
-    qr.clear();
-    qr.makeCode(String(lista[i].ID_Peca));
+
+    // Alguns valores de ID (ex: os que viraram data sem querer na planilha)
+    // podem quebrar essa biblioteca de QR pra certos tamanhos de texto.
+    // Se acontecer, pula só essa etiqueta (fica sem QR) e segue pras outras
+    // em vez de travar a impressão toda.
+    let falhou = false;
+    try {
+      qr.clear();
+      qr.makeCode(String(lista[i].ID_Peca));
+    } catch (e) {
+      console.warn('QR falhou para', lista[i].ID_Peca, e);
+      falhou = true;
+    }
+
+    if (falhou) {
+      qrDataUrls[i] = '';
+      i++;
+      mostrarProgressoImpressao(i, lista.length);
+      gerarProximo();
+      return;
+    }
 
     setTimeout(function () {
       if (terminou) return;
@@ -1066,7 +1085,7 @@ function imprimirViaIframe(lista, qrDataUrls) {
   const labelsHtml = lista.map((p, i) => {
     const dims = (largura(p) || comprimento(p)) ? (esc(largura(p) || '') + '×' + esc(comprimento(p) || '') + 'mm') : '';
     return '<div class="label">' +
-      '<img class="label-qr" src="' + qrDataUrls[i] + '">' +
+      (qrDataUrls[i] ? '<img class="label-qr" src="' + qrDataUrls[i] + '">' : '<div class="label-qr label-qr-vazio">QR indisponível<br>pra esta peça</div>') +
       '<div class="label-content">' +
       '<div class="label-phone">' + LABEL_TELEFONE + '</div>' +
       '<img class="label-logo" src="' + LOGO_PERFINORTE_B64 + '">' +
@@ -1084,6 +1103,7 @@ function imprimirViaIframe(lista, qrDataUrls) {
     'body { margin: 0; font-family: Arial, Helvetica, sans-serif; }' +
     '.label { width: 107mm; height: 48mm; padding: 3mm; display: flex; gap: 3mm; align-items: center; page-break-after: always; overflow: hidden; }' +
     '.label-qr { width: 38mm; height: 38mm; flex: none; }' +
+    '.label-qr-vazio { display: flex; align-items: center; justify-content: center; text-align: center; font-size: 6.5pt; color: #999; border: 1px dashed #ccc; }' +
     '.label-content { flex: 1; min-width: 0; }' +
     '.label-phone { font-size: 8pt; color: #555; text-align: right; }' +
     '.label-logo { height: 7mm; margin: 1mm 0; display: block; }' +
