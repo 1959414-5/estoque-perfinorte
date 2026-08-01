@@ -1609,7 +1609,7 @@ function imprimirViaIframeRecebimento(lista, qrDataUrls) {
     '.label-r { width: 107mm; height: 48mm; padding: 2.5mm 3mm; display: flex; flex-direction: column; page-break-after: always; overflow: hidden; }' +
     '.label-r-body { display: flex; gap: 3mm; flex: 1; min-height: 0; }' +
     '.label-r-left { flex: none; width: 26mm; display: flex; flex-direction: column; align-items: center; gap: 1.2mm; }' +
-    '.label-r-marca { text-align: left; align-self: flex-start; font-size: 7pt; font-weight: 800; color: #1a1a1a; letter-spacing: 0.03em; line-height: 1.2; }' +
+    '.label-r-marca { text-align: center; align-self: center; font-size: 7pt; font-weight: 800; color: #1a1a1a; letter-spacing: 0.03em; line-height: 1.2; }' +
     '.label-r-qr { width: 24mm; height: 24mm; display: block; }' +
     '.label-r-qr-vazio { width: 24mm; height: 24mm; border: 1px dashed #999; display: flex; align-items: center; justify-content: center; font-size: 6.5pt; color: #999; text-align: center; }' +
     '.label-r-aviso { background: #f2f2f2; border: 0.3mm solid #999; color: #000; font-size: 7.5pt; font-weight: 800; text-decoration: underline; text-transform: uppercase; text-align: center; padding: 1mm 2mm; border-radius: 1mm; line-height: 1.25; width: 100%; }' +
@@ -1617,7 +1617,7 @@ function imprimirViaIframeRecebimento(lista, qrDataUrls) {
     '.label-id-box { display: inline-block; align-self: flex-start; border: 0.5mm solid #1a1a1a; border-radius: 1mm; padding: 0.8mm 2mm; font-size: 14pt; font-weight: 800; color: #1a1a1a; line-height: 1.15; }' +
     '.label-r-qtd { font-size: 16pt; font-weight: 800; color: #000; text-decoration: underline; margin-top: 1.5mm; }' +
     '.label-r-desc { font-size: 9.5pt; font-weight: 600; color: #1a1a1a; margin-top: 1.5mm; line-height: 1.25; }' +
-    '.label-r-right { flex: none; width: 20mm; display: flex; flex-direction: column; align-items: flex-end; text-align: right; }' +
+    '.label-r-right { flex: none; width: 20mm; display: flex; flex-direction: column; align-items: center; text-align: center; }' +
     '.label-r-item-label { font-size: 11pt; font-weight: 800; color: #1a1a1a; }' +
     '.label-r-item-box { width: 17mm; height: 17mm; border: 0.5mm solid #1a1a1a; border-radius: 1mm; background: #fff; margin-top: 1.5mm; }' +
     '.label-r-logo { margin-top: auto; }' +
