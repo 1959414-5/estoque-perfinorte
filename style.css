@@ -9,9 +9,8 @@
     --accent: #C77D00;
     --accent-ink: #FFFFFF;
 
-    --status-solicitado: #64748B;
+    --status-solicitado: #DC2626;
     --status-producao: #C77D00;
-    --status-pronto: #15803D;
     --status-entregue: #94A3B8;
 
     --font-display: 'Barlow Condensed', sans-serif;
@@ -43,8 +42,8 @@
     border-bottom: 3px solid var(--accent);
   }
   .topbar-logo {
-    position: absolute; top: 14px; right: 18px;
-    height: 26px; width: auto; display: block;
+    position: absolute; top: 22px; right: 18px;
+    height: 24px; width: auto; display: block;
   }
   .topbar-title {
     display: block;
@@ -248,8 +247,13 @@
     box-shadow: 0 2px 8px rgba(27,36,49,0.15) !important;
   }
   .btn-solto:active { background: var(--bg) !important; }
+
+  .painel-toolbar-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .painel-toolbar-btn { flex: 1; width: auto; margin: 0; white-space: nowrap; }
+  #badge-filtros-ativos { color: var(--accent); font-weight: 900; }
   .catalogo-toolbar .btn-secondary { flex: 1; min-width: 160px; }
   #btn-imprimir-lista { display: none; }
+  #btn-modo-admin { display: none; }
   #tabela-painel-wrap { display: none; }
 
   .catalog-card-quick-actions { display: flex; gap: 8px; margin-top: 8px; }
@@ -292,6 +296,7 @@
     display: flex; align-items: center; justify-content: center;
     z-index: 200; padding: 24px;
   }
+  .hidden { display: none !important; }
   .lightbox.hidden { display: none; }
   .lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; object-fit: contain; transition: transform 0.2s ease; }
   .lightbox-rotate-controls {
@@ -443,7 +448,6 @@
   }
   .status-badge[data-s="Solicitado"] { background: var(--status-solicitado); }
   .status-badge[data-s="Em produção"] { background: var(--status-producao); }
-  .status-badge[data-s="Pronto"] { background: var(--status-pronto); }
   .status-badge[data-s="Entregue"] { background: var(--status-entregue); }
 
   .ticket-perf {
@@ -505,8 +509,8 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
   .nav-btn {
-    flex: 1; background: none; border: none; padding: 14px 4px 12px;
-    font-family: var(--font-display); font-weight: 700; font-size: 14.5px;
+    flex: 1; background: none; border: none; padding: 16px 4px 14px;
+    font-family: var(--font-display); font-weight: 700; font-size: 15.5px;
     letter-spacing: 0.03em; text-transform: uppercase;
     color: var(--ink-soft); border-top: 3px solid transparent;
   }
@@ -593,6 +597,7 @@
 
     .fab { display: flex; align-items: center; justify-content: center; bottom: 28px; }
     #btn-imprimir-lista { display: block; }
+    #btn-modo-admin { display: block; }
 
     /* Catálogo e Painel em grade, aproveitando a largura da tela */
     #lista-catalogo {
