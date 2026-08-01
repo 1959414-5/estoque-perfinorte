@@ -58,6 +58,11 @@ document.addEventListener('DOMContentLoaded', function () {
   carregarCatalogo();
   carregarSolicitacoes();
 
+  const abaSalva = localStorage.getItem('abaAtual');
+  if (abaSalva && document.getElementById('view-' + abaSalva)) {
+    trocarView(abaSalva);
+  }
+
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.addEventListener('click', () => trocarView(btn.dataset.view));
   });
@@ -80,6 +85,7 @@ function trocarView(nome) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('view-active'));
   document.getElementById('view-' + nome).classList.add('view-active');
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('nav-active', b.dataset.view === nome));
+  localStorage.setItem('abaAtual', nome);
   if (nome === 'painel') carregarSolicitacoes();
   if (nome === 'catalogo') carregarCatalogo();
 }
@@ -890,6 +896,9 @@ function abrirMovimento(idPeca) {
   document.getElementById('movimento-qtd').value = 1;
   document.getElementById('movimento-obs').value = '';
   document.querySelectorAll('.movimento-tipo-btn').forEach(b => b.classList.toggle('selected', b.dataset.tipo === 'entrada'));
+  const btnConfirmar = document.getElementById('btn-confirmar-movimento');
+  btnConfirmar.disabled = false;
+  btnConfirmar.textContent = 'Confirmar';
   atualizarPreviewMovimento();
   document.getElementById('modal-movimento').classList.remove('hidden');
 }
@@ -933,14 +942,27 @@ function confirmarMovimento() {
   const obs = document.getElementById('movimento-obs').value.trim();
   const usuario = localStorage.getItem('nomeUsuario') || 'Desconhecido';
 
+  const btn = document.getElementById('btn-confirmar-movimento');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Salvando...';
+
   api('registrarMovimentoEstoque', { idPeca: MOVIMENTO_PECA_ATUAL.ID_Peca, tipo: MOVIMENTO_TIPO_ATUAL, quantidade: qtd, observacao: obs, usuario: usuario })
     .then(function (novoValor) {
       toast('Estoque atualizado: ' + novoValor);
+      // Atualiza direto no array que já está na tela (é a mesma referência
+      // usada pelo card do catálogo) — não precisa buscar tudo de novo no
+      // servidor, então o número muda na hora, sem esperar nem dar refresh.
       MOVIMENTO_PECA_ATUAL['Estoque_Atual'] = novoValor;
+      btn.disabled = false;
+      btn.textContent = 'Confirmar';
       fecharMovimento();
-      carregarCatalogo();
+      renderCatalogoLista();
     })
-    .catch(function (err) { toast('Erro: ' + err.message); });
+    .catch(function (err) {
+      toast('Erro: ' + err.message);
+      btn.disabled = false;
+      btn.textContent = 'Confirmar';
+    });
 }
 
 // ---------------------------------------------------------
@@ -1037,6 +1059,7 @@ function mostrarProgressoImpressao(atual, total) {
 }
 
 function imprimirViaIframe(lista, qrDataUrls) {
+ try {
   const largura = p => p['Largura do Produto'];
   const comprimento = p => p['Comprimento do Produto'];
 
@@ -1084,16 +1107,25 @@ function imprimirViaIframe(lista, qrDataUrls) {
   doc.write(html);
   doc.close();
 
-  iframe.onload = function () {
-    setTimeout(function () {
-      try {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-      } catch (e) {
-        toast('Erro ao abrir impressão: ' + e.message);
-      }
-    }, 150);
-  };
+  // onload de iframe preenchido via document.write() nem sempre dispara de
+  // forma confiável — por segurança, tenta imprimir tanto pelo onload quanto
+  // por um temporizador de reforço, o que disparar primeiro vence.
+  let jaImprimiu = false;
+  function dispararImpressao() {
+    if (jaImprimiu) return;
+    jaImprimiu = true;
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } catch (e) {
+      toast('Erro ao abrir impressão: ' + e.message);
+    }
+  }
+  iframe.onload = function () { setTimeout(dispararImpressao, 150); };
+  setTimeout(dispararImpressao, 700);
+ } catch (e) {
+  toast('Erro ao montar etiquetas: ' + e.message);
+ }
 }
 
 // ---------------------------------------------------------
