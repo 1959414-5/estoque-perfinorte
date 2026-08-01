@@ -65,6 +65,8 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   document.getElementById('peca-foto-camera').addEventListener('change', e => handleFotoChange(e, 'peca'));
+  document.getElementById('inp-confirmacao-camera').addEventListener('change', handleConfirmacaoPedido);
+  document.getElementById('inp-confirmacao-arquivo').addEventListener('change', handleConfirmacaoPedido);
   document.getElementById('peca-foto-arquivo').addEventListener('change', e => handleFotoChange(e, 'peca'));
 
   document.getElementById('form-nova').addEventListener('submit', enviarSolicitacao);
@@ -843,6 +845,17 @@ function renderDetalhePedidoConteudo() {
 
   document.getElementById('pedido-admin-actions').style.display = MODO_ADMIN ? 'block' : 'none';
 
+  const confUrl = pd.itens.find(it => it.Confirmacao_URL)?.Confirmacao_URL;
+  const confWrap = document.getElementById('pedido-confirmacao-anexada');
+  if (confUrl) {
+    confWrap.style.display = 'block';
+    confWrap.innerHTML = '<label style="font-size:13px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:6px;">Print anexado</label>' +
+      '<img src="' + confUrl + '" style="width:100%; max-height:160px; object-fit:cover; border-radius:10px; cursor:zoom-in;" onclick="abrirImagemFullscreen(\'' + confUrl.replace(/'/g, "\\'") + '\')">';
+  } else {
+    confWrap.style.display = 'none';
+    confWrap.innerHTML = '';
+  }
+
   document.getElementById('pedido-itens-lista').innerHTML = pd.itens.map(renderItemPedidoDetalhe).join('');
 }
 
@@ -941,74 +954,41 @@ function salvarQtdItemPedido(idSolicitacao) {
     .catch(function (err) { toast('Erro: ' + err.message); });
 }
 
-// ---- Confirmação por imagem (WhatsApp) ----
-async function enviarConfirmacaoPedido() {
-  if (!exigirModoAdmin()) return;
+// ---- Confirmação por upload (print do pedido feito na Sênior) ----
+function handleConfirmacaoPedido(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!exigirModoAdmin()) { e.target.value = ''; return; }
   const pd = PEDIDOS_CACHE.find(x => x.pedidoId === PEDIDO_DETALHE_ATUAL);
   if (!pd) return;
-  if (typeof html2canvas === 'undefined') { toast('Biblioteca de imagem não carregou. Recarregue a página.'); return; }
 
-  const receiptEl = montarReceiptPedido(pd);
-  document.body.appendChild(receiptEl);
-
-  try {
-    const canvas = await html2canvas(receiptEl, { scale: 2, backgroundColor: '#ffffff' });
-    document.body.removeChild(receiptEl);
-
-    canvas.toBlob(async function (blob) {
-      const file = new File([blob], 'pedido-' + pd.pedidoId + '.png', { type: 'image/png' });
-      let compartilhado = false;
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file], title: 'Pedido — ' + pd.solicitante, text: 'Confirmação do pedido' });
-          compartilhado = true;
-        } catch (e) { /* usuário cancelou o compartilhamento — segue o fluxo normal */ }
-      }
-      if (!compartilhado) {
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-        toast('Imagem gerada numa aba nova — salve e envie pelo WhatsApp.');
-      }
-      await avancarStatusPedidoParaProducao(pd);
-    }, 'image/png');
-  } catch (err) {
-    if (document.body.contains(receiptEl)) document.body.removeChild(receiptEl);
-    toast('Erro ao gerar imagem: ' + err.message);
-  }
-}
-
-function montarReceiptPedido(pd) {
-  const div = document.createElement('div');
-  div.style.cssText = 'position:fixed; left:-9999px; top:0; width:520px; background:#fff; padding:26px; font-family:Arial,Helvetica,sans-serif;';
-  div.innerHTML =
-    '<img src="' + LOGO_PERFINORTE_B64 + '" style="height:34px; display:block; margin-bottom:16px;">' +
-    '<div style="font-size:20px; font-weight:800; color:#1a1a1a; margin-bottom:2px;">Pedido confirmado</div>' +
-    '<div style="font-size:13px; color:#666; margin-bottom:18px;">Solicitante: ' + esc(pd.solicitante) + ' · ' + new Date(pd.dataHora).toLocaleString('pt-BR') + '</div>' +
-    pd.itens.map(function (it) {
-      return '<div style="border-top:1px solid #eee; padding:12px 0;">' +
-        '<div style="font-weight:700; font-size:14.5px; color:#1a1a1a;">' + esc(it.Nome_Peca) + (it.Urgente ? ' <span style="color:#DC2626;">🔴 URGENTE</span>' : '') + '</div>' +
-        '<div style="font-size:12.5px; color:#666; margin-top:2px;">ID: ' + esc(it.ID_Peca) + ' &nbsp;·&nbsp; Quantidade: ' + esc(it.Quantidade) + '</div>' +
-        (it.Observacao ? '<div style="font-size:12px; color:#888; margin-top:3px;">Obs: ' + esc(it.Observacao) + '</div>' : '') +
-        '</div>';
-    }).join('') +
-    '<div style="margin-top:16px; font-size:10.5px; color:#aaa;">Gerado pelo Estoque de Peças — Perfinorte</div>';
-  return div;
-}
-
-async function avancarStatusPedidoParaProducao(pd) {
-  const idxAlvo = STATUS_ORDEM.indexOf('Em produção');
-  for (const it of pd.itens) {
-    const idxAtual = STATUS_ORDEM.indexOf(it.Status);
-    if (idxAtual < idxAlvo) {
-      try {
-        await api('atualizarStatus', { idSolicitacao: it.ID_Solicitacao, novoStatus: 'Em produção', usuario: 'Bárbara' });
-        it.Status = 'Em produção';
-      } catch (e) { /* segue tentando os outros itens mesmo se um falhar */ }
-    }
-  }
-  toast('Pedido marcado como "Em produção"');
-  renderDetalhePedidoConteudo();
-  renderPainel();
+  const reader = new FileReader();
+  reader.onload = function (ev) {
+    redimensionarBase64(ev.target.result, 1600, function (reduzida) {
+      const botoes = document.querySelectorAll('#pedido-admin-actions .photo-input');
+      botoes.forEach(b => b.style.opacity = '0.6');
+      api('anexarConfirmacaoPedido', {
+        idsSolicitacoes: pd.itens.map(it => it.ID_Solicitacao),
+        imagemBase64: reduzida,
+        usuario: 'Bárbara'
+      })
+        .then(function (url) {
+          toast('Confirmação anexada — pedido marcado como "Em produção"');
+          pd.itens.forEach(it => {
+            it.Confirmacao_URL = url;
+            const idxAtual = STATUS_ORDEM.indexOf(it.Status);
+            const idxAlvo = STATUS_ORDEM.indexOf('Em produção');
+            if (idxAtual !== -1 && idxAtual < idxAlvo) it.Status = 'Em produção';
+          });
+          renderDetalhePedidoConteudo();
+          renderPainel();
+        })
+        .catch(function (err) { toast('Erro: ' + err.message); })
+        .finally(function () { botoes.forEach(b => b.style.opacity = '1'); });
+    });
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
 }
 
 // ---------------------------------------------------------
