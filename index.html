@@ -95,6 +95,8 @@
       <div class="ticket-sub" id="pedido-detalhe-sub" style="margin-bottom:14px;"></div>
 
       <div id="pedido-admin-actions" style="display:none;">
+        <button type="button" class="btn-secondary" style="margin:0 0 14px;" onclick="imprimirEtiquetasPedidoRecebimento()">🖨️ Imprimir etiquetas de recebimento (com quantidade)</button>
+
         <label style="font-size:13px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:6px;">Anexar print do pedido (Sênior) — marca "Em produção"</label>
         <div class="photo-buttons-row">
           <div class="photo-input">
@@ -274,6 +276,24 @@
   </div>
 
   <div id="toast" class="toast"></div>
+
+  <!-- ===================== MODAL: CORTAR CAPTURA DE TELA ===================== -->
+  <div id="modal-crop-captura" class="modal-overlay hidden">
+    <div class="modal-sheet" style="position:relative; max-width:640px;">
+      <div class="modal-handle"></div>
+      <button class="modal-close" onclick="cancelarCropCaptura()">×</button>
+      <div class="modal-title" style="margin-bottom:4px;">Selecione a área</div>
+      <div style="font-size:13px; color:var(--ink-soft); margin-bottom:12px;">Arraste pra marcar só a parte do pedido. Se não arrastar nada, anexa a imagem inteira.</div>
+      <div id="crop-canvas-wrap" style="position:relative; max-width:100%; overflow:auto; border:1px solid var(--line); border-radius:8px; touch-action:none;">
+        <img id="crop-img" style="display:block; max-width:100%; user-select:none;" draggable="false">
+        <div id="crop-selection" class="crop-selection-box"></div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:14px;">
+        <button type="button" class="btn-secondary" style="margin:0;" onclick="cancelarCropCaptura()">Cancelar</button>
+        <button type="button" class="btn-primary" style="margin:0;" onclick="confirmarCropCaptura()">Cortar e anexar</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ===================== LIGHTBOX: IMAGEM EM TELA CHEIA ===================== -->
   <div id="modal-lightbox" class="lightbox hidden" onclick="fecharImagemFullscreen()">
