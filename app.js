@@ -1586,7 +1586,7 @@ function imprimirViaIframeRecebimento(lista, qrDataUrls) {
       '<div class="label-r-left">' +
       '<div class="label-r-marca">ESTOQUE<br>PERFINORTE</div>' +
       (qrDataUrls[i] ? '<img class="label-r-qr" src="' + qrDataUrls[i] + '">' : '<div class="label-r-qr-vazio">QR indisponível</div>') +
-      '<div class="label-r-aviso">NÃO COLAR<br>ETIQUETA</div>' +
+      '<div class="label-r-aviso">NÃO COLAR A<br>ETIQUETA NA PEÇA</div>' +
       '</div>' +
       '<div class="label-r-info">' +
       '<div class="label-r-row-top">' +
