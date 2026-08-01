@@ -71,16 +71,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
 function carregarCatalogo() {
   const btn = document.getElementById('btn-atualizar');
-  const textoOriginal = btn.textContent;
   btn.disabled = true;
-  btn.textContent = '🔄 Atualizando...';
 
   api('getCatalogo')
     .then(function (lista) {
       CATALOGO = lista || [];
       renderLista();
-      const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      btn.textContent = '🔄 Atualizado às ' + agora;
     })
     .catch(function (err) {
       // só substitui a lista inteira por uma mensagem de erro se ainda não
@@ -90,7 +86,6 @@ function carregarCatalogo() {
         document.getElementById('lista-catalogo').innerHTML =
           '<div class="empty-state"><div class="big">Erro ao carregar</div>' + esc(err.message) + '</div>';
       }
-      btn.textContent = textoOriginal;
       toast('Erro ao atualizar: ' + err.message);
     })
     .finally(function () { btn.disabled = false; });
