@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -96,8 +95,20 @@
       <div class="ticket-sub" id="pedido-detalhe-sub" style="margin-bottom:14px;"></div>
 
       <div id="pedido-admin-actions" style="display:none;">
-        <button type="button" class="btn-primary" onclick="enviarConfirmacaoPedido()">📤 Enviar confirmação (marca "Em produção")</button>
+        <label style="font-size:13px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:6px;">Anexar print do pedido (Sênior) — marca "Em produção"</label>
+        <div class="photo-buttons-row">
+          <div class="photo-input">
+            <input type="file" id="inp-confirmacao-camera" accept="image/*" capture="environment">
+            📷 Tirar foto
+          </div>
+          <div class="photo-input">
+            <input type="file" id="inp-confirmacao-arquivo" accept="image/*">
+            🖼️ Escolher arquivo
+          </div>
+        </div>
       </div>
+
+      <div id="pedido-confirmacao-anexada" style="display:none; margin-bottom:16px;"></div>
 
       <div id="pedido-itens-lista"></div>
     </div>
