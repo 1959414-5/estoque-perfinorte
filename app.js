@@ -894,7 +894,10 @@ function renderDetalhePedidoConteudo() {
     confWrap.style.display = 'block';
     confWrap.innerHTML = '<label style="font-size:13px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:6px;">Print' + (confUrls.length > 1 ? 's' : '') + ' anexado' + (confUrls.length > 1 ? 's' : '') + '</label>' +
       '<div class="photos-preview-row">' + confUrls.map(url =>
-        '<div class="photo-preview-item" style="width:84px; height:84px;"><img src="' + url + '" style="cursor:zoom-in;" onclick="abrirImagemFullscreen(\'' + url.replace(/'/g, "\\'") + '\')"></div>'
+        '<div class="photo-preview-item" style="width:84px; height:84px;">' +
+        '<img src="' + url + '" style="cursor:zoom-in;" onclick="abrirImagemFullscreen(\'' + url.replace(/'/g, "\\'") + '\')">' +
+        (MODO_ADMIN ? '<button type="button" class="photo-preview-remove" onclick="event.stopPropagation(); removerPrintAnexado(\'' + url.replace(/'/g, "\\'") + '\')">×</button>' : '') +
+        '</div>'
       ).join('') + '</div>';
   } else {
     confWrap.style.display = 'none';
@@ -1021,6 +1024,28 @@ function handleConfirmacaoPedido(e) {
     reader.readAsDataURL(file);
   });
   e.target.value = '';
+}
+
+function removerPrintAnexado(url) {
+  if (!exigirModoAdmin()) return;
+  const pd = PEDIDOS_CACHE.find(x => x.pedidoId === PEDIDO_DETALHE_ATUAL);
+  if (!pd) return;
+  if (!confirm('Remover esse print anexado?')) return;
+
+  api('removerConfirmacaoPedido', {
+    idsSolicitacoes: pd.itens.map(it => it.ID_Solicitacao),
+    urlParaRemover: url
+  })
+    .then(function () {
+      toast('Print removido');
+      pd.itens.forEach(it => {
+        if (it.Confirmacao_URL) {
+          it.Confirmacao_URL = String(it.Confirmacao_URL).split('\n').filter(u => u && u !== url).join('\n');
+        }
+      });
+      renderDetalhePedidoConteudo();
+    })
+    .catch(function (err) { toast('Erro: ' + err.message); });
 }
 
 function enviarImagensConfirmacao(pd, imagensBase64) {
@@ -1169,15 +1194,30 @@ function confirmarCropCaptura() {
   const clientH = img.clientHeight || naturalH;
   const escalaX = naturalW / clientW;
   const escalaY = naturalH / clientH;
-  const larguraFinal = Math.max(1, Math.round(CROP_SELECAO.w * escalaX));
-  const alturaFinal = Math.max(1, Math.round(CROP_SELECAO.h * escalaY));
+
+  // A seleção foi medida em relação ao CONTAINER (crop-canvas-wrap), mas o
+  // corte precisa ser relativo à IMAGEM em si — se a imagem não começa
+  // exatamente no canto do container (borda, centralização, etc.), o corte
+  // saía deslocado do que a pessoa realmente arrastou. Corrige aqui.
+  const wrap = document.getElementById('crop-canvas-wrap');
+  const wrapRect = wrap.getBoundingClientRect();
+  const imgRect = img.getBoundingClientRect();
+  const offsetX = (imgRect.left - wrapRect.left) + wrap.scrollLeft;
+  const offsetY = (imgRect.top - wrapRect.top) + wrap.scrollTop;
+  const selX = Math.max(0, CROP_SELECAO.x - offsetX);
+  const selY = Math.max(0, CROP_SELECAO.y - offsetY);
+  const selW = Math.min(CROP_SELECAO.w, clientW - selX);
+  const selH = Math.min(CROP_SELECAO.h, clientH - selY);
+
+  const larguraFinal = Math.max(1, Math.round(selW * escalaX));
+  const alturaFinal = Math.max(1, Math.round(selH * escalaY));
 
   const canvas = document.createElement('canvas');
   canvas.width = larguraFinal;
   canvas.height = alturaFinal;
   canvas.getContext('2d').drawImage(
     img,
-    CROP_SELECAO.x * escalaX, CROP_SELECAO.y * escalaY, CROP_SELECAO.w * escalaX, CROP_SELECAO.h * escalaY,
+    selX * escalaX, selY * escalaY, selW * escalaX, selH * escalaY,
     0, 0, larguraFinal, alturaFinal
   );
   const cortada = canvas.toDataURL('image/png');
@@ -1544,17 +1584,17 @@ function imprimirViaIframeRecebimento(lista, qrDataUrls) {
     return '<div class="label-r">' +
       '<div class="label-r-marca">ESTOQUE PERFINORTE</div>' +
       '<div class="label-r-body">' +
-      '<div class="label-r-qr-wrap">' +
+      '<div class="label-r-left">' +
       (qrDataUrls[i] ? '<img class="label-r-qr" src="' + qrDataUrls[i] + '">' : '<div class="label-r-qr-vazio">QR indisponível</div>') +
+      '<div class="label-r-aviso">NÃO COLAR<br>ETIQUETA</div>' +
       '</div>' +
       '<div class="label-r-info">' +
       '<div class="label-id-box">' + esc(p.ID_Peca) + '</div>' +
       '<div class="label-r-qtd">Qtd: ' + esc(p.Quantidade) + '</div>' +
       '<div class="label-r-desc">' + esc(p.Nome_Peca) + '</div>' +
+      '<img class="label-logo label-r-logo" src="' + LOGO_PERFINORTE_B64 + '">' +
       '</div>' +
       '</div>' +
-      '<div class="label-r-aviso">NÃO COLAR ETIQUETA</div>' +
-      '<div class="label-r-footer"><img class="label-logo" src="' + LOGO_PERFINORTE_B64 + '"></div>' +
       '</div>';
   }).join('');
 
@@ -1564,16 +1604,16 @@ function imprimirViaIframeRecebimento(lista, qrDataUrls) {
     'body { margin: 0; font-family: Arial, Helvetica, sans-serif; }' +
     '.label-r { width: 107mm; height: 48mm; padding: 2.5mm 3mm; display: flex; flex-direction: column; gap: 1mm; page-break-after: always; overflow: hidden; }' +
     '.label-r-marca { text-align: right; font-size: 7pt; font-weight: 800; color: #1a1a1a; letter-spacing: 0.03em; }' +
-    '.label-r-body { display: flex; gap: 3mm; flex: 1; min-height: 0; align-items: center; }' +
-    '.label-r-qr-wrap { flex: none; width: 34mm; display: flex; align-items: center; justify-content: center; }' +
-    '.label-r-qr { width: 34mm; height: 34mm; display: block; }' +
-    '.label-r-qr-vazio { width: 34mm; height: 34mm; border: 1px dashed #999; display: flex; align-items: center; justify-content: center; font-size: 6.5pt; color: #999; text-align: center; }' +
-    '.label-r-info { flex: 1; min-width: 0; }' +
-    '.label-id-box { display: inline-block; border: 0.5mm solid #1a1a1a; border-radius: 1mm; padding: 0.8mm 2mm; font-size: 14pt; font-weight: 800; color: #1a1a1a; line-height: 1.15; }' +
+    '.label-r-body { display: flex; gap: 3mm; flex: 1; min-height: 0; }' +
+    '.label-r-left { flex: none; width: 28mm; display: flex; flex-direction: column; align-items: center; gap: 1.5mm; }' +
+    '.label-r-qr { width: 28mm; height: 28mm; display: block; }' +
+    '.label-r-qr-vazio { width: 28mm; height: 28mm; border: 1px dashed #999; display: flex; align-items: center; justify-content: center; font-size: 6.5pt; color: #999; text-align: center; }' +
+    '.label-r-aviso { background: #ddd; color: #000; font-size: 7.5pt; font-weight: 800; text-decoration: underline; text-transform: uppercase; text-align: center; padding: 1mm 2mm; border-radius: 1mm; line-height: 1.25; width: 100%; }' +
+    '.label-r-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }' +
+    '.label-id-box { display: inline-block; align-self: flex-start; border: 0.5mm solid #1a1a1a; border-radius: 1mm; padding: 0.8mm 2mm; font-size: 14pt; font-weight: 800; color: #1a1a1a; line-height: 1.15; }' +
     '.label-r-qtd { font-size: 16pt; font-weight: 800; color: #000; text-decoration: underline; margin-top: 1.5mm; }' +
     '.label-r-desc { font-size: 9.5pt; font-weight: 600; color: #1a1a1a; margin-top: 1.5mm; line-height: 1.25; }' +
-    '.label-r-aviso { align-self: center; background: #ddd; color: #000; font-size: 8pt; font-weight: 800; text-decoration: underline; text-transform: uppercase; padding: 1mm 4mm; border-radius: 1mm; }' +
-    '.label-r-footer { display: flex; justify-content: flex-end; }' +
+    '.label-r-logo { margin-top: auto; align-self: flex-end; }' +
     '.label-logo { height: 4.5mm; display: block; }' +
     '</style></head><body>' + labelsHtml + '</body></html>';
 
