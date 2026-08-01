@@ -1586,15 +1586,16 @@ function imprimirViaIframeRecebimento(lista, qrDataUrls) {
       '<div class="label-r-left">' +
       '<div class="label-r-marca">ESTOQUE<br>PERFINORTE</div>' +
       (qrDataUrls[i] ? '<img class="label-r-qr" src="' + qrDataUrls[i] + '">' : '<div class="label-r-qr-vazio">QR indisponível</div>') +
-      '<div class="label-r-aviso">NÃO COLAR A<br>ETIQUETA NA PEÇA</div>' +
+      '<div class="label-r-aviso">NÃO COLAR<br>ETIQUETA</div>' +
       '</div>' +
       '<div class="label-r-info">' +
-      '<div class="label-r-row-top">' +
       '<div class="label-id-box">' + esc(p.ID_Peca) + '</div>' +
-      '<div class="label-r-item-box">Item:</div>' +
-      '</div>' +
       '<div class="label-r-qtd">Qtd: ' + esc(p.Quantidade) + '</div>' +
       '<div class="label-r-desc">' + esc(p.Nome_Peca) + '</div>' +
+      '</div>' +
+      '<div class="label-r-right">' +
+      '<div class="label-r-item-label">ITEM:</div>' +
+      '<div class="label-r-item-box"></div>' +
       '<img class="label-logo label-r-logo" src="' + LOGO_PERFINORTE_B64 + '">' +
       '</div>' +
       '</div>' +
@@ -1607,18 +1608,19 @@ function imprimirViaIframeRecebimento(lista, qrDataUrls) {
     'body { margin: 0; font-family: Arial, Helvetica, sans-serif; }' +
     '.label-r { width: 107mm; height: 48mm; padding: 2.5mm 3mm; display: flex; flex-direction: column; page-break-after: always; overflow: hidden; }' +
     '.label-r-body { display: flex; gap: 3mm; flex: 1; min-height: 0; }' +
-    '.label-r-left { flex: none; width: 28mm; display: flex; flex-direction: column; align-items: center; gap: 1.2mm; }' +
-    '.label-r-marca { text-align: center; font-size: 7pt; font-weight: 800; color: #1a1a1a; letter-spacing: 0.03em; line-height: 1.2; }' +
-    '.label-r-qr { width: 28mm; height: 28mm; display: block; }' +
-    '.label-r-qr-vazio { width: 28mm; height: 28mm; border: 1px dashed #999; display: flex; align-items: center; justify-content: center; font-size: 6.5pt; color: #999; text-align: center; }' +
-    '.label-r-aviso { background: #ddd; color: #000; font-size: 7.5pt; font-weight: 800; text-decoration: underline; text-transform: uppercase; text-align: center; padding: 1mm 2mm; border-radius: 1mm; line-height: 1.25; width: 100%; }' +
+    '.label-r-left { flex: none; width: 26mm; display: flex; flex-direction: column; align-items: center; gap: 1.2mm; }' +
+    '.label-r-marca { text-align: left; align-self: flex-start; font-size: 7pt; font-weight: 800; color: #1a1a1a; letter-spacing: 0.03em; line-height: 1.2; }' +
+    '.label-r-qr { width: 24mm; height: 24mm; display: block; }' +
+    '.label-r-qr-vazio { width: 24mm; height: 24mm; border: 1px dashed #999; display: flex; align-items: center; justify-content: center; font-size: 6.5pt; color: #999; text-align: center; }' +
+    '.label-r-aviso { background: #f2f2f2; border: 0.3mm solid #999; color: #000; font-size: 7.5pt; font-weight: 800; text-decoration: underline; text-transform: uppercase; text-align: center; padding: 1mm 2mm; border-radius: 1mm; line-height: 1.25; width: 100%; }' +
     '.label-r-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }' +
-    '.label-r-row-top { display: flex; align-items: center; gap: 2mm; }' +
     '.label-id-box { display: inline-block; align-self: flex-start; border: 0.5mm solid #1a1a1a; border-radius: 1mm; padding: 0.8mm 2mm; font-size: 14pt; font-weight: 800; color: #1a1a1a; line-height: 1.15; }' +
-    '.label-r-item-box { flex: 1; min-width: 18mm; border: 0.5mm solid #1a1a1a; border-radius: 1mm; background: #fff; padding: 0.8mm 2mm; font-size: 10pt; font-weight: 700; color: #1a1a1a; }' +
     '.label-r-qtd { font-size: 16pt; font-weight: 800; color: #000; text-decoration: underline; margin-top: 1.5mm; }' +
     '.label-r-desc { font-size: 9.5pt; font-weight: 600; color: #1a1a1a; margin-top: 1.5mm; line-height: 1.25; }' +
-    '.label-r-logo { margin-top: auto; align-self: flex-end; }' +
+    '.label-r-right { flex: none; width: 20mm; display: flex; flex-direction: column; align-items: flex-end; text-align: right; }' +
+    '.label-r-item-label { font-size: 11pt; font-weight: 800; color: #1a1a1a; }' +
+    '.label-r-item-box { width: 17mm; height: 17mm; border: 0.5mm solid #1a1a1a; border-radius: 1mm; background: #fff; margin-top: 1.5mm; }' +
+    '.label-r-logo { margin-top: auto; }' +
     '.label-logo { height: 4.5mm; display: block; }' +
     '</style></head><body>' + labelsHtml + '</body></html>';
 
