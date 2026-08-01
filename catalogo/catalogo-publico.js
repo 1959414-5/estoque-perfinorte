@@ -30,7 +30,7 @@ function formatarEspessura(valor) {
   if (valor === undefined || valor === null || valor === '') return '';
   const n = Number(valor);
   if (isNaN(n)) return String(valor);
-  return n.toFixed(2).replace('.', ',');
+  return n.toFixed(2).replace('.', ',') + 'mm';
 }
 
 function toast(msg) {
@@ -56,18 +56,44 @@ document.addEventListener('DOMContentLoaded', function () {
     .catch(function (err) { toast('Erro ao carregar configuração: ' + err.message); });
 
   carregarCatalogo();
+
+  // Atualiza sozinho em segundo plano, sem precisar recarregar a página —
+  // assim o estoque mostrado fica sempre bem próximo do real. Silencioso:
+  // só troca os números, não pisca nem reseta o que a pessoa estava vendo.
+  setInterval(carregarCatalogo, 45000);
+
+  // Se a pessoa deixar a aba aberta e minimizada, ao voltar pra ela já
+  // atualiza na hora, sem precisar esperar o próximo ciclo de 45s.
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') carregarCatalogo();
+  });
 });
 
 function carregarCatalogo() {
+  const btn = document.getElementById('btn-atualizar');
+  const textoOriginal = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '🔄 Atualizando...';
+
   api('getCatalogo')
     .then(function (lista) {
       CATALOGO = lista || [];
       renderLista();
+      const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      btn.textContent = '🔄 Atualizado às ' + agora;
     })
     .catch(function (err) {
-      document.getElementById('lista-catalogo').innerHTML =
-        '<div class="empty-state"><div class="big">Erro ao carregar</div>' + esc(err.message) + '</div>';
-    });
+      // só substitui a lista inteira por uma mensagem de erro se ainda não
+      // tiver nada na tela — se já tinha carregado antes, mantém o que
+      // já estava visível em vez de sumir com tudo por causa de 1 falha
+      if (!CATALOGO.length) {
+        document.getElementById('lista-catalogo').innerHTML =
+          '<div class="empty-state"><div class="big">Erro ao carregar</div>' + esc(err.message) + '</div>';
+      }
+      btn.textContent = textoOriginal;
+      toast('Erro ao atualizar: ' + err.message);
+    })
+    .finally(function () { btn.disabled = false; });
 }
 
 function montarChipsLinha() {
