@@ -29,7 +29,7 @@
 
         <div class="section-label" style="margin-top:22px;">Peças desta solicitação</div>
         <div id="itens-solicitacao"></div>
-        <button type="button" class="btn-secondary" onclick="adicionarItemSolicitacao()">+ Adicionar outra peça</button>
+        <button type="button" class="btn-secondary btn-solto" onclick="adicionarItemSolicitacao()">+ Adicionar outra peça</button>
 
         <div class="field" style="margin-top:20px;">
           <label>Observação geral (opcional)</label>
@@ -43,7 +43,7 @@
     <!-- ===================== PAINEL ===================== -->
     <section id="view-painel" class="view">
       <div class="section-label">Painel de solicitações</div>
-      <button type="button" id="btn-modo-admin" class="btn-secondary" style="margin:0 0 12px;" onclick="alternarModoAdmin()">🔒 Liberar controles</button>
+      <button type="button" id="btn-modo-admin" class="btn-secondary btn-solto" style="margin:0 0 12px;" onclick="alternarModoAdmin()">🔒 Liberar controles</button>
       <div class="filter-row" id="status-filter-row">
         <div class="filter-chip selected" onclick="setFiltro('Todos', this)">Todos</div>
         <div class="filter-chip" onclick="setFiltro('Solicitado', this)">Solicitado</div>
@@ -61,9 +61,12 @@
         <input type="text" id="inp-busca-catalogo" placeholder="Buscar peça...">
       </div>
       <div id="catalogo-linha-chips" class="filter-row"></div>
+      <div class="filter-row">
+        <div class="filter-chip" id="filtro-estoque-baixo" onclick="alternarFiltroEstoqueBaixo()">⚠️ Estoque baixo/zerado</div>
+      </div>
       <div class="catalogo-toolbar">
-        <button type="button" class="btn-secondary" style="margin:0;" onclick="abrirScanQR()">📷 Escanear QR</button>
-        <button type="button" class="btn-secondary" style="margin:0;" onclick="imprimirEtiquetasCatalogo()">🖨️ Imprimir etiquetas desta lista</button>
+        <button type="button" class="btn-secondary btn-solto" style="margin:0;" onclick="abrirScanQR()">📷 Escanear QR</button>
+        <button type="button" class="btn-secondary btn-solto" style="margin:0;" onclick="imprimirEtiquetasCatalogo()">🖨️ Imprimir etiquetas desta lista</button>
       </div>
       <div id="lista-catalogo"></div>
       <button class="fab" type="button" onclick="abrirModalPecaNova('catalogo')">+</button>
