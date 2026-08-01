@@ -1114,14 +1114,14 @@ function imprimirViaIframe(lista, qrDataUrls) {
     'body { margin: 0; font-family: Arial, Helvetica, sans-serif; }' +
     '.label { width: 107mm; height: 48mm; padding: 3mm; display: flex; flex-direction: column; gap: 1.2mm; page-break-after: always; overflow: hidden; }' +
     '.label-top { display: flex; gap: 2mm; flex: 1; min-height: 0; }' +
-    '.label-qr-wrap, .label-photo-wrap { flex: none; width: 30mm; display: flex; align-items: center; justify-content: center; }' +
+    '.label-qr-wrap, .label-photo-wrap { flex: none; width: 30mm; display: flex; align-items: flex-start; justify-content: center; }' +
     '.label-qr { width: 30mm; height: 30mm; display: block; }' +
     '.label-photo { width: 30mm; height: 30mm; display: block; object-fit: contain; border-radius: 2.5mm; border: 0.3mm solid #ddd; padding: 0.8mm; }' +
     '.label-qr-vazio, .label-photo-vazio { width: 30mm; height: 30mm; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 6.5pt; color: #999; border: 1px dashed #ccc; border-radius: 2.5mm; box-sizing: border-box; }' +
     '.label-specs { flex: 1; min-width: 0; display: flex; flex-direction: column; }' +
     '.label-id-box { display: inline-block; align-self: flex-start; border: 0.5mm solid #1a1a1a; border-radius: 1mm; padding: 0.8mm 2mm; font-size: 14pt; font-weight: 800; color: #1a1a1a; line-height: 1.15; }' +
     '.label-meta-block { margin-top: 1.5mm; }' +
-    '.label-meta { font-size: 6.5pt; color: #555; margin-top: 0.6mm; line-height: 1.25; }' +
+    '.label-meta { font-size: 7.8pt; color: #333; font-weight: 600; margin-top: 0.8mm; line-height: 1.3; }' +
     '.label-bottom { display: flex; align-items: flex-end; gap: 2mm; flex: none; }' +
     '.label-name { flex: 1; min-width: 0; font-size: 9pt; font-weight: 700; color: #1a1a1a; line-height: 1.2; max-height: 8.8mm; overflow: hidden; }' +
     '.label-logo { height: 4.5mm; flex: none; display: block; }' +
