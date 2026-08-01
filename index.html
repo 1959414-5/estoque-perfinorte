@@ -13,6 +13,7 @@
   <header class="topbar">
     <span class="topbar-title">Estoque de Peças</span>
     <span class="topbar-sub">Perfinorte · Expedição</span>
+    <img class="topbar-logo" src="topbar-logo.png" alt="Perfinorte">
   </header>
 
   <main id="app">
@@ -44,6 +45,12 @@
     <section id="view-painel" class="view">
       <div class="section-label">Painel de solicitações</div>
       <button type="button" id="btn-modo-admin" class="btn-secondary btn-solto" style="margin:0 0 12px;" onclick="alternarModoAdmin()">🔒 Liberar controles</button>
+      <div class="filter-row" id="periodo-filter-row">
+        <div class="filter-chip selected" onclick="setFiltroPeriodo('hoje', this)">Hoje</div>
+        <div class="filter-chip" onclick="setFiltroPeriodo('7dias', this)">7 dias</div>
+        <div class="filter-chip" onclick="setFiltroPeriodo('30dias', this)">30 dias</div>
+        <div class="filter-chip" onclick="setFiltroPeriodo('todos', this)">Todos</div>
+      </div>
       <div class="filter-row" id="status-filter-row">
         <div class="filter-chip selected" onclick="setFiltro('Todos', this)">Todos</div>
         <div class="filter-chip" onclick="setFiltro('Solicitado', this)">Solicitado</div>
@@ -51,7 +58,23 @@
         <div class="filter-chip" onclick="setFiltro('Pronto', this)">Pronto</div>
         <div class="filter-chip" onclick="setFiltro('Entregue', this)">Entregue</div>
       </div>
+
       <div id="lista-painel"></div>
+
+      <div id="tabela-painel-wrap">
+        <table id="tabela-painel">
+          <thead>
+            <tr>
+              <th>Solicitante</th>
+              <th>Peças</th>
+              <th>Qtd. itens</th>
+              <th>Quando</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-painel-body"></tbody>
+        </table>
+      </div>
     </section>
 
     <!-- ===================== CATÁLOGO ===================== -->
@@ -67,7 +90,7 @@
       </div>
       <div class="catalogo-toolbar">
         <button type="button" class="btn-secondary btn-solto" style="margin:0;" onclick="abrirScanQR()">📷 Escanear QR</button>
-        <button type="button" class="btn-secondary btn-solto" style="margin:0;" onclick="imprimirEtiquetasCatalogo()">🖨️ Imprimir etiquetas desta lista</button>
+        <button type="button" class="btn-secondary btn-solto" id="btn-imprimir-lista" style="margin:0;" onclick="imprimirEtiquetasCatalogo()">🖨️ Imprimir etiquetas desta lista</button>
       </div>
       <div id="lista-catalogo"></div>
       <button class="fab" type="button" onclick="abrirModalPecaNova('catalogo')">+</button>
