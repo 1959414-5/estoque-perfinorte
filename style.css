@@ -280,7 +280,15 @@
     z-index: 200; padding: 24px;
   }
   .lightbox.hidden { display: none; }
-  .lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; object-fit: contain; }
+  .lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; object-fit: contain; transition: transform 0.2s ease; }
+  .lightbox-rotate-controls {
+    position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 10px; z-index: 10;
+  }
+  .lightbox-rotate-controls button {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: rgba(255,255,255,0.14); border: none; color: #fff; font-size: 20px;
+  }
   .lightbox-close {
     position: absolute; top: 18px; right: 18px;
     width: 40px; height: 40px; border-radius: 50%;
