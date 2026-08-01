@@ -1089,11 +1089,11 @@ function imprimirViaIframe(lista, qrDataUrls) {
       '<div class="label-qr-wrap">' +
       (qrDataUrls[i] ? '<img class="label-qr" src="' + qrDataUrls[i] + '">' : '<div class="label-qr-vazio">QR indisponível<br>pra esta peça</div>') +
       '</div>' +
-      '<div class="label-info">' +
-      '<div class="label-header">' +
-      '<div class="label-id">' + esc(p.ID_Peca) + '</div>' +
-      (temFoto ? '<img class="label-photo" src="' + p.Imagem_URL + '">' : '') +
+      '<div class="label-photo-wrap">' +
+      (temFoto ? '<img class="label-photo" src="' + p.Imagem_URL + '">' : '<div class="label-photo-vazio">sem foto</div>') +
       '</div>' +
+      '<div class="label-specs">' +
+      '<div class="label-id-box">' + esc(p.ID_Peca) + '</div>' +
       '<div class="label-meta-block">' +
       (p.MP ? '<div class="label-meta">MP: ' + esc(p.MP) + (p.Espessura ? ' de ' + esc(formatarEspessura(p.Espessura)) : '') + '</div>' : '') +
       (dims ? '<div class="label-meta">' + dims + '</div>' : '') +
@@ -1112,20 +1112,18 @@ function imprimirViaIframe(lista, qrDataUrls) {
     '@page { size: 107mm 48mm; margin: 0; }' +
     '* { box-sizing: border-box; }' +
     'body { margin: 0; font-family: Arial, Helvetica, sans-serif; }' +
-    '.label { width: 107mm; height: 48mm; padding: 3mm; display: flex; flex-direction: column; gap: 1.5mm; page-break-after: always; overflow: hidden; }' +
-    '.label-top { display: flex; gap: 2.5mm; flex: 1; min-height: 0; }' +
-    '.label-qr-wrap { flex: none; width: 29mm; display: flex; align-items: center; justify-content: center; }' +
-    '.label-qr { width: 29mm; height: 29mm; display: block; }' +
-    '.label-qr-vazio { width: 29mm; height: 29mm; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 6.5pt; color: #999; border: 1px dashed #ccc; }' +
-    '.label-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }' +
-    '.label-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 2mm; }' +
-    '.label-id { font-size: 16pt; font-weight: 800; color: #1a1a1a; line-height: 1.1; }' +
-    '.label-photo { width: 15mm; height: 15mm; object-fit: cover; border-radius: 1.5mm; border: 0.3mm solid #ddd; flex: none; }' +
+    '.label { width: 107mm; height: 48mm; padding: 3mm; display: flex; flex-direction: column; gap: 1.2mm; page-break-after: always; overflow: hidden; }' +
+    '.label-top { display: flex; gap: 2mm; flex: 1; min-height: 0; }' +
+    '.label-qr-wrap, .label-photo-wrap { flex: none; width: 30mm; display: flex; align-items: center; justify-content: center; }' +
+    '.label-qr, .label-photo { width: 30mm; height: 30mm; display: block; object-fit: cover; }' +
+    '.label-qr-vazio, .label-photo-vazio { width: 30mm; height: 30mm; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 6.5pt; color: #999; border: 1px dashed #ccc; box-sizing: border-box; }' +
+    '.label-specs { flex: 1; min-width: 0; display: flex; flex-direction: column; }' +
+    '.label-id-box { display: inline-block; align-self: flex-start; border: 0.5mm solid #1a1a1a; border-radius: 1mm; padding: 0.8mm 2mm; font-size: 14pt; font-weight: 800; color: #1a1a1a; line-height: 1.15; }' +
     '.label-meta-block { margin-top: 1.5mm; }' +
-    '.label-meta { font-size: 7pt; color: #555; margin-top: 0.6mm; }' +
-    '.label-bottom { display: flex; align-items: flex-end; gap: 2mm; flex: none; border-top: 0.3mm solid #eee; padding-top: 1mm; }' +
-    '.label-name { flex: 1; min-width: 0; font-size: 12.5pt; font-weight: 800; color: #1a1a1a; line-height: 1.2; }' +
-    '.label-logo { height: 5mm; flex: none; display: block; }' +
+    '.label-meta { font-size: 6.5pt; color: #555; margin-top: 0.6mm; line-height: 1.25; }' +
+    '.label-bottom { display: flex; align-items: flex-end; gap: 2mm; flex: none; }' +
+    '.label-name { flex: 1; min-width: 0; font-size: 9pt; font-weight: 700; color: #1a1a1a; line-height: 1.2; max-height: 8.8mm; overflow: hidden; }' +
+    '.label-logo { height: 4.5mm; flex: none; display: block; }' +
     '</style></head><body>' + labelsHtml + '</body></html>';
 
   // iframe escondido na PRÓPRIA aba — ao contrário de window.open(), nunca fica
