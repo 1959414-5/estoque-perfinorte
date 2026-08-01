@@ -57,8 +57,9 @@
     <!-- ===================== CATÁLOGO ===================== -->
     <section id="view-catalogo" class="view">
       <div class="section-label">Catálogo de peças</div>
-      <div class="search-box">
-        <input type="text" id="inp-busca-catalogo" placeholder="Buscar peça...">
+      <div class="search-box-row">
+        <input type="text" id="inp-busca-catalogo" placeholder="Buscar peça..." class="search-box-input">
+        <button type="button" class="btn-refresh-compact" id="btn-atualizar-catalogo" onclick="carregarCatalogo()" title="Atualizar">🔄</button>
       </div>
       <div id="catalogo-linha-chips" class="filter-row"></div>
       <div class="filter-row">
