@@ -67,6 +67,14 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('peca-foto-camera').addEventListener('change', e => handleFotoChange(e, 'peca'));
   document.getElementById('inp-confirmacao-camera').addEventListener('change', handleConfirmacaoPedido);
   document.getElementById('inp-confirmacao-arquivo').addEventListener('change', handleConfirmacaoPedido);
+
+  const cropWrap = document.getElementById('crop-canvas-wrap');
+  cropWrap.addEventListener('mousedown', cropIniciar);
+  cropWrap.addEventListener('mousemove', cropMover);
+  window.addEventListener('mouseup', cropFinalizar);
+  cropWrap.addEventListener('touchstart', cropIniciar, { passive: true });
+  cropWrap.addEventListener('touchmove', cropMover, { passive: true });
+  cropWrap.addEventListener('touchend', cropFinalizar);
   document.getElementById('peca-foto-arquivo').addEventListener('change', e => handleFotoChange(e, 'peca'));
 
   document.getElementById('form-nova').addEventListener('submit', enviarSolicitacao);
@@ -844,6 +852,29 @@ function fecharDetalhePedido() {
   document.getElementById('modal-detalhe-pedido').classList.add('hidden');
 }
 
+// Etiquetas de RECEBIMENTO: uma por item do pedido, com a quantidade e um QR
+// que identifica esse item específico (não a peça em geral). Pensada pra
+// imprimir e mandar junto com a ordem de produção da Sênior — quando a peça
+// chega pronta no estoque, é só escanear que já vem tudo preenchido.
+function imprimirEtiquetasPedidoRecebimento() {
+  if (!exigirModoAdmin()) return;
+  const pd = PEDIDOS_CACHE.find(x => x.pedidoId === PEDIDO_DETALHE_ATUAL);
+  if (!pd) return;
+
+  const lista = pd.itens.map(function (item) {
+    const peca = CATALOGO.find(p => p.ID_Peca === item.ID_Peca) || {};
+    return Object.assign({}, peca, {
+      ID_Peca: item.ID_Peca,
+      Nome_Peca: item.Nome_Peca,
+      Quantidade: item.Quantidade,
+      __qrTexto: 'SOLICITACAO:' + item.ID_Solicitacao
+    });
+  });
+
+  if (!lista.length) { toast('Nenhum item nesse pedido'); return; }
+  montarEImprimirEtiquetas(lista);
+}
+
 function renderDetalhePedidoConteudo() {
   const pd = PEDIDOS_CACHE.find(x => x.pedidoId === PEDIDO_DETALHE_ATUAL);
   if (!pd) { fecharDetalhePedido(); return; }
@@ -1028,7 +1059,10 @@ async function capturarTelaConfirmacao() {
 
   let stream;
   try {
-    stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    // "displaySurface: window" é só uma SUGESTÃO pro navegador abrir direto na aba
+    // de Janela — ele ainda pode deixar a pessoa trocar pra Tela/Aba, isso é
+    // controlado pelo navegador por segurança, nenhum site consegue travar isso.
+    stream = await navigator.mediaDevices.getDisplayMedia({ video: { displaySurface: 'window' } });
   } catch (e) {
     return; // usuário cancelou o seletor — não faz nada
   }
@@ -1046,20 +1080,101 @@ async function capturarTelaConfirmacao() {
 
   stream.getTracks().forEach(t => t.stop());
 
-  const base64 = canvas.toDataURL('image/png');
-  redimensionarBase64(base64, 1600, function (reduzida) {
-    enviarImagensConfirmacao(pd, [reduzida]);
+  const bruta = canvas.toDataURL('image/png');
+  abrirCropCaptura(bruta, function (cortada) {
+    redimensionarBase64(cortada, 1600, function (reduzida) {
+      enviarImagensConfirmacao(pd, [reduzida]);
+    });
   });
 }
 
-// ---------------------------------------------------------
-// ESCANEAR QR — câmera ao vivo com fallback pra foto
-// ---------------------------------------------------------
+// ---- Ferramenta de corte (arrastar pra selecionar área, tipo Ferramenta de Captura) ----
+let CROP_IMG_NATURAL = { w: 0, h: 0 };
+let CROP_SELECAO = null;
+let CROP_ARRASTANDO = false;
+let CROP_INICIO = null;
+let CROP_CALLBACK = null;
+
+function abrirCropCaptura(dataUrl, callback) {
+  CROP_CALLBACK = callback;
+  CROP_SELECAO = null;
+  const img = document.getElementById('crop-img');
+  document.getElementById('crop-selection').style.display = 'none';
+  img.onload = function () {
+    CROP_IMG_NATURAL = { w: img.naturalWidth, h: img.naturalHeight };
+  };
+  img.src = dataUrl;
+  document.getElementById('modal-crop-captura').classList.remove('hidden');
+}
+
+function cancelarCropCaptura() {
+  document.getElementById('modal-crop-captura').classList.add('hidden');
+  CROP_CALLBACK = null;
+}
+
+function cropPegarPonto(e) {
+  if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  return { x: e.clientX, y: e.clientY };
+}
+
+function cropIniciar(e) {
+  const wrap = document.getElementById('crop-canvas-wrap');
+  const rect = wrap.getBoundingClientRect();
+  const p = cropPegarPonto(e);
+  CROP_INICIO = { x: p.x - rect.left + wrap.scrollLeft, y: p.y - rect.top + wrap.scrollTop };
+  CROP_ARRASTANDO = true;
+}
+
+function cropMover(e) {
+  if (!CROP_ARRASTANDO) return;
+  const wrap = document.getElementById('crop-canvas-wrap');
+  const rect = wrap.getBoundingClientRect();
+  const p = cropPegarPonto(e);
+  const atual = { x: p.x - rect.left + wrap.scrollLeft, y: p.y - rect.top + wrap.scrollTop };
+  const x = Math.min(CROP_INICIO.x, atual.x);
+  const y = Math.min(CROP_INICIO.y, atual.y);
+  const w = Math.abs(atual.x - CROP_INICIO.x);
+  const h = Math.abs(atual.y - CROP_INICIO.y);
+  const sel = document.getElementById('crop-selection');
+  sel.style.left = x + 'px'; sel.style.top = y + 'px';
+  sel.style.width = w + 'px'; sel.style.height = h + 'px';
+  sel.style.display = 'block';
+  CROP_SELECAO = { x, y, w, h };
+}
+
+function cropFinalizar() { CROP_ARRASTANDO = false; }
+
+function confirmarCropCaptura() {
+  const img = document.getElementById('crop-img');
+  document.getElementById('modal-crop-captura').classList.add('hidden');
+
+  if (!CROP_SELECAO || CROP_SELECAO.w < 8 || CROP_SELECAO.h < 8) {
+    // ninguém arrastou nada de verdade — usa a imagem inteira
+    if (CROP_CALLBACK) CROP_CALLBACK(img.src);
+    return;
+  }
+  const escalaX = CROP_IMG_NATURAL.w / img.clientWidth;
+  const escalaY = CROP_IMG_NATURAL.h / img.clientHeight;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(CROP_SELECAO.w * escalaX);
+  canvas.height = Math.round(CROP_SELECAO.h * escalaY);
+  canvas.getContext('2d').drawImage(
+    img,
+    CROP_SELECAO.x * escalaX, CROP_SELECAO.y * escalaY, CROP_SELECAO.w * escalaX, CROP_SELECAO.h * escalaY,
+    0, 0, canvas.width, canvas.height
+  );
+  const cortada = canvas.toDataURL('image/png');
+  if (CROP_CALLBACK) CROP_CALLBACK(cortada);
+}
+
 let SCAN_STREAM = null;
 let SCAN_RAF = null;
 let SCAN_CANVAS = null;
 let SCAN_CALLBACK = null;
 
+// ---------------------------------------------------------
+// ESCANEAR QR — câmera ao vivo com fallback pra foto
+// ---------------------------------------------------------
 function abrirScanQR(callback) {
   SCAN_CALLBACK = callback || function (p) { abrirMovimento(p.ID_Peca); };
   document.getElementById('inp-codigo-manual').value = '';
@@ -1179,7 +1294,25 @@ function handleFotoQR(e) {
 }
 
 function buscarPecaEscaneada(codigo) {
-  const p = CATALOGO.find(x => String(x.ID_Peca).trim().toLowerCase() === String(codigo).trim().toLowerCase());
+  codigo = String(codigo).trim();
+
+  // Etiqueta de RECEBIMENTO de um item de solicitação (impressa junto com o
+  // pedido da Sênior) — identifica o item exato e já sabe a quantidade,
+  // não é uma peça do catálogo genérica.
+  if (codigo.indexOf('SOLICITACAO:') === 0) {
+    const idSolicitacao = codigo.substring('SOLICITACAO:'.length);
+    const item = SOLICITACOES.find(s => s.ID_Solicitacao === idSolicitacao);
+    if (!item) { document.getElementById('scan-qr-status').textContent = 'Solicitação não encontrada — tenta recarregar a página.'; return; }
+    fecharScanQR();
+    abrirMovimento(item.ID_Peca, {
+      quantidadeSugerida: item.Quantidade,
+      contexto: 'Recebendo pedido de ' + item.Solicitante,
+      observacaoSugerida: 'Recebimento — pedido de ' + item.Solicitante
+    });
+    return;
+  }
+
+  const p = CATALOGO.find(x => String(x.ID_Peca).trim().toLowerCase() === codigo.toLowerCase());
   if (!p) { document.getElementById('scan-qr-status').textContent = 'Peça "' + codigo + '" não encontrada no catálogo.'; return; }
   fecharScanQR();
   if (SCAN_CALLBACK) SCAN_CALLBACK(p);
@@ -1188,16 +1321,17 @@ function buscarPecaEscaneada(codigo) {
 // ---------------------------------------------------------
 // ENTRADA / SAÍDA DE ESTOQUE
 // ---------------------------------------------------------
-function abrirMovimento(idPeca) {
+function abrirMovimento(idPeca, opcoes) {
   const p = CATALOGO.find(x => x.ID_Peca === idPeca);
   if (!p) { toast('Peça não encontrada'); return; }
+  opcoes = opcoes || {};
   MOVIMENTO_PECA_ATUAL = p;
   MOVIMENTO_TIPO_ATUAL = 'entrada';
 
   document.getElementById('movimento-id').textContent = p.Nome_Peca;
-  document.getElementById('movimento-nome').textContent = p.ID_Peca;
-  document.getElementById('movimento-qtd').value = 1;
-  document.getElementById('movimento-obs').value = '';
+  document.getElementById('movimento-nome').textContent = p.ID_Peca + (opcoes.contexto ? ' — ' + opcoes.contexto : '');
+  document.getElementById('movimento-qtd').value = opcoes.quantidadeSugerida || 1;
+  document.getElementById('movimento-obs').value = opcoes.observacaoSugerida || '';
   document.querySelectorAll('.movimento-tipo-btn').forEach(b => b.classList.toggle('selected', b.dataset.tipo === 'entrada'));
   const btnConfirmar = document.getElementById('btn-confirmar-movimento');
   btnConfirmar.disabled = false;
@@ -1336,7 +1470,7 @@ function montarEImprimirEtiquetas(lista) {
     let falhou = false;
     try {
       qr.clear();
-      qr.makeCode(String(lista[i].ID_Peca));
+      qr.makeCode(String(lista[i].__qrTexto || lista[i].ID_Peca));
     } catch (e) {
       console.warn('QR falhou para', lista[i].ID_Peca, e);
       falhou = true;
@@ -1394,6 +1528,7 @@ function imprimirViaIframe(lista, qrDataUrls) {
       '</div>' +
       '<div class="label-specs">' +
       '<div class="label-id-box">' + esc(p.ID_Peca) + '</div>' +
+      (p.Quantidade ? '<div class="label-qtd-box">Qtd: ' + esc(p.Quantidade) + '</div>' : '') +
       '<div class="label-meta-block">' +
       (p.MP ? '<div class="label-meta">MP: ' + esc(p.MP) + (p.Espessura ? ' de ' + esc(formatarEspessura(p.Espessura)) : '') + '</div>' : '') +
       (dims ? '<div class="label-meta">' + dims + '</div>' : '') +
@@ -1423,6 +1558,7 @@ function imprimirViaIframe(lista, qrDataUrls) {
     '.label-qr-vazio, .label-photo-vazio { width: 30mm; height: 30mm; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 6.5pt; color: #999; border: 1px dashed #ccc; border-radius: 2.5mm; box-sizing: border-box; }' +
     '.label-specs { flex: 1; min-width: 0; display: flex; flex-direction: column; }' +
     '.label-id-box { display: inline-block; align-self: flex-start; border: 0.5mm solid #1a1a1a; border-radius: 1mm; padding: 0.8mm 2mm; font-size: 14pt; font-weight: 800; color: #1a1a1a; line-height: 1.15; }' +
+    '.label-qtd-box { display: inline-block; align-self: flex-start; background: #C77D00; color: #fff; border-radius: 1mm; padding: 0.8mm 2mm; font-size: 12pt; font-weight: 800; margin-top: 1mm; }' +
     '.label-meta-block { margin-top: 1.5mm; }' +
     '.label-meta { font-size: 7.8pt; color: #333; font-weight: 600; margin-top: 0.8mm; line-height: 1.3; }' +
     '.label-bottom { display: flex; align-items: flex-end; gap: 2mm; flex: none; }' +
