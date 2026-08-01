@@ -102,10 +102,11 @@
             📷 Tirar foto
           </div>
           <div class="photo-input">
-            <input type="file" id="inp-confirmacao-arquivo" accept="image/*">
-            🖼️ Escolher arquivo
+            <input type="file" id="inp-confirmacao-arquivo" accept="image/*" multiple>
+            🖼️ Escolher arquivo(s)
           </div>
         </div>
+        <button type="button" class="btn-secondary" id="btn-capturar-tela" onclick="capturarTelaConfirmacao()">🖥️ Capturar tela / janela</button>
       </div>
 
       <div id="pedido-confirmacao-anexada" style="display:none; margin-bottom:16px;"></div>
@@ -173,11 +174,11 @@
         <div style="display:flex; gap:10px;">
           <div class="field" style="flex:1;">
             <label>Estoque Atual</label>
-            <input type="number" id="peca-estoque-atual" min="0" placeholder="0">
+            <input type="number" id="peca-estoque-atual" min="0" inputmode="numeric" placeholder="0">
           </div>
           <div class="field" style="flex:1;">
             <label>Estoque Mínimo (alerta)</label>
-            <input type="number" id="peca-estoque-minimo" min="0" placeholder="0">
+            <input type="number" id="peca-estoque-minimo" min="0" inputmode="numeric" placeholder="0">
           </div>
         </div>
 
@@ -255,7 +256,7 @@
         <label>Quantidade</label>
         <div style="display:flex; align-items:center; gap:8px;">
           <button type="button" class="stepper-btn" onclick="ajustarQtdMovimento(-1)">−</button>
-          <input type="number" id="movimento-qtd" value="1" min="1" style="flex:1; text-align:center; padding:12px; border-radius:10px; border:1.5px solid var(--line);" oninput="atualizarPreviewMovimento()">
+          <input type="number" id="movimento-qtd" value="1" min="1" inputmode="numeric" style="flex:1; text-align:center; padding:12px; border-radius:10px; border:1.5px solid var(--line);" oninput="atualizarPreviewMovimento()">
           <button type="button" class="stepper-btn" onclick="ajustarQtdMovimento(1)">+</button>
         </div>
       </div>
@@ -277,6 +278,10 @@
   <!-- ===================== LIGHTBOX: IMAGEM EM TELA CHEIA ===================== -->
   <div id="modal-lightbox" class="lightbox hidden" onclick="fecharImagemFullscreen()">
     <button class="lightbox-close" onclick="fecharImagemFullscreen()">×</button>
+    <div class="lightbox-rotate-controls" onclick="event.stopPropagation()">
+      <button type="button" onclick="rotacionarImagemFullscreen(-90)" title="Girar à esquerda">↺</button>
+      <button type="button" onclick="rotacionarImagemFullscreen(90)" title="Girar à direita">↻</button>
+    </div>
     <img id="lightbox-img" src="" onclick="event.stopPropagation()">
   </div>
 
