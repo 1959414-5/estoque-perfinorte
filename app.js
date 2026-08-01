@@ -29,6 +29,7 @@ let PECA_IMAGEM_URL_ATUAL = '';   // url já existente da peça (se editando)
 let MODO_PECA_ORIGEM = 'catalogo'; // 'catalogo' | 'solicitacao' — de onde abriu o form de peça
 
 let FILTRO_STATUS = 'Todos';
+let FILTRO_PERIODO = 'hoje';
 let FILTRO_LINHA_PICKER = 'Todas';
 let FILTRO_LINHA_CATALOGO = 'Todas';
 let FILTRO_ESTOQUE_BAIXO = false;
@@ -764,6 +765,23 @@ function setFiltro(status, el) {
   renderPainel();
 }
 
+function setFiltroPeriodo(periodo, el) {
+  FILTRO_PERIODO = periodo;
+  document.querySelectorAll('#periodo-filter-row .filter-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  renderPainel();
+}
+
+function dataDentroDoPeriodo(dataStr, periodo) {
+  if (periodo === 'todos') return true;
+  const data = new Date(dataStr);
+  const agora = new Date();
+  if (periodo === 'hoje') return data.toDateString() === agora.toDateString();
+  const dias = periodo === '7dias' ? 7 : 30;
+  const limite = new Date(agora.getTime() - dias * 24 * 60 * 60 * 1000);
+  return data >= limite;
+}
+
 function pecaThumbPorId(idPeca) {
   const p = CATALOGO.find(x => x.ID_Peca === idPeca);
   return p ? p.Imagem_URL : null;
@@ -836,6 +854,7 @@ function renderPainel() {
   if (FILTRO_STATUS !== 'Todos') {
     pedidos = pedidos.filter(pd => statusResumoPedido(pd) === FILTRO_STATUS);
   }
+  pedidos = pedidos.filter(pd => dataDentroDoPeriodo(pd.dataHora, FILTRO_PERIODO));
   pedidos = pedidos.slice().sort((a, b) => {
     const ua = pedidoTemUrgente(a) ? 1 : 0;
     const ub = pedidoTemUrgente(b) ? 1 : 0;
@@ -846,6 +865,7 @@ function renderPainel() {
   wrap.innerHTML = '';
   if (pedidos.length === 0) {
     wrap.innerHTML = '<div class="empty-state"><div class="big">Nada por aqui</div>Sem pedidos nesse filtro.</div>';
+    renderTabelaPainel(pedidos);
     return;
   }
   pedidos.forEach(pd => {
@@ -868,6 +888,32 @@ function renderPainel() {
       '<div class="ticket-body"><span>' + nomes + resto + '</span></div>';
     wrap.appendChild(div);
   });
+
+  renderTabelaPainel(pedidos);
+}
+
+function renderTabelaPainel(pedidos) {
+  const tbody = document.getElementById('tabela-painel-body');
+  if (!tbody) return;
+
+  if (pedidos.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="tabela-painel-vazia">Sem pedidos nesse filtro.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = pedidos.map(pd => {
+    const urgente = pedidoTemUrgente(pd);
+    const statusGeral = statusResumoPedido(pd);
+    const nomes = pd.itens.slice(0, 3).map(it => esc(it.Nome_Peca)).join(', ');
+    const resto = pd.itens.length > 3 ? ' + ' + (pd.itens.length - 3) : '';
+    return '<tr onclick="abrirDetalhePedido(\'' + pd.pedidoId + '\')">' +
+      '<td>' + esc(pd.solicitante) + (urgente ? ' <span class="urgent-badge">Urgente</span>' : '') + '</td>' +
+      '<td>' + nomes + resto + '</td>' +
+      '<td>' + pd.itens.length + '</td>' +
+      '<td>' + tempoRelativo(pd.dataHora) + '</td>' +
+      '<td><span class="status-badge" data-s="' + esc(statusGeral) + '">' + esc(statusGeral) + '</span></td>' +
+      '</tr>';
+  }).join('');
 }
 
 // ---- Detalhe do pedido (lista de itens dentro) ----
