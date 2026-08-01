@@ -1090,18 +1090,18 @@ function imprimirViaIframe(lista, qrDataUrls) {
       '</div>' +
       '<div class="label-content">' +
       '<div class="label-header">' +
-      '<div class="label-id-name">' +
       '<div class="label-id">' + esc(p.ID_Peca) + '</div>' +
-      '<div class="label-name">' + esc(p.Nome_Peca) + '</div>' +
-      '</div>' +
       (temFoto ? '<img class="label-photo" src="' + p.Imagem_URL + '">' : '') +
       '</div>' +
+      '<div class="label-name">' + esc(p.Nome_Peca) + '</div>' +
       '<div class="label-meta-block">' +
       (p.MP ? '<div class="label-meta">MP: ' + esc(p.MP) + (p.Espessura ? ' de ' + esc(formatarEspessura(p.Espessura)) : '') + '</div>' : '') +
       (dims ? '<div class="label-meta">' + dims + '</div>' : '') +
-      (p.Servicos ? '<div class="label-meta">Serviço: ' + esc(p.Servicos) + '</div>' : '') +
       '</div>' +
-      '<div class="label-bottom-row"><img class="label-logo" src="' + LOGO_PERFINORTE_B64 + '"></div>' +
+      '<div class="label-footer">' +
+      '<div class="label-servico">' + (p.Servicos ? 'Serviço: ' + esc(p.Servicos) : '') + '</div>' +
+      '<img class="label-logo" src="' + LOGO_PERFINORTE_B64 + '">' +
+      '</div>' +
       '</div></div>';
   }).join('');
 
@@ -1115,14 +1115,14 @@ function imprimirViaIframe(lista, qrDataUrls) {
     '.label-qr-vazio { width: 30mm; height: 30mm; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 6.5pt; color: #999; border: 1px dashed #ccc; }' +
     '.label-content { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100%; }' +
     '.label-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 2mm; }' +
-    '.label-id-name { min-width: 0; flex: 1; }' +
-    '.label-photo { width: 24mm; height: 24mm; object-fit: cover; border-radius: 1.5mm; border: 0.3mm solid #ddd; flex: none; }' +
-    '.label-id { font-size: 17pt; font-weight: 800; color: #1a1a1a; line-height: 1.1; }' +
-    '.label-name { font-size: 9.5pt; font-weight: 700; color: #1a1a1a; margin-top: 0.8mm; line-height: 1.15; }' +
-    '.label-meta-block { flex: 1; min-height: 0; margin-top: 1mm; }' +
+    '.label-id { font-size: 18pt; font-weight: 800; color: #1a1a1a; line-height: 1.1; }' +
+    '.label-photo { width: 26mm; height: 26mm; object-fit: cover; border-radius: 1.5mm; border: 0.3mm solid #ddd; flex: none; }' +
+    '.label-name { font-size: 9.5pt; font-weight: 700; color: #1a1a1a; margin-top: 1mm; line-height: 1.15; }' +
+    '.label-meta-block { margin-top: 1mm; }' +
     '.label-meta { font-size: 7pt; color: #555; margin-top: 0.4mm; }' +
-    '.label-bottom-row { display: flex; justify-content: flex-end; }' +
-    '.label-logo { height: 5mm; display: block; }' +
+    '.label-footer { display: flex; align-items: center; gap: 2mm; margin-top: auto; }' +
+    '.label-servico { flex: 1; min-width: 0; font-size: 7pt; color: #555; }' +
+    '.label-logo { height: 5mm; flex: none; display: block; }' +
     '</style></head><body>' + labelsHtml + '</body></html>';
 
   // iframe escondido na PRÓPRIA aba — ao contrário de window.open(), nunca fica
