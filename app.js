@@ -969,27 +969,49 @@ function imprimirEtiquetasCatalogo() {
 function montarEImprimirEtiquetas(lista) {
   mostrarProgressoImpressao(0, lista.length);
 
+  const holder = document.createElement('div');
+  holder.style.position = 'fixed';
+  holder.style.left = '-9999px';
+  document.body.appendChild(holder);
+  const qr = new QRCode(holder, { width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M });
+
   const qrDataUrls = new Array(lista.length);
   let i = 0;
+  let terminou = false;
+
+  // Watchdog: se o contador não avançar por 5s seguidos, algo travou —
+  // avisa em vez de deixar girando pra sempre, e sugere um contorno imediato.
+  let ultimoIVisto = -1;
+  const watchdog = setInterval(function () {
+    if (terminou) { clearInterval(watchdog); return; }
+    if (i === ultimoIVisto) {
+      clearInterval(watchdog);
+      terminou = true;
+      const overlay = document.getElementById('print-progress-overlay');
+      if (overlay) overlay.remove();
+      if (document.body.contains(holder)) document.body.removeChild(holder);
+      toast('Travou gerando a etiqueta ' + (i + 1) + '/' + lista.length + '. Tenta filtrar por Linha e imprimir em grupos menores.');
+    }
+    ultimoIVisto = i;
+  }, 5000);
 
   function gerarProximo() {
+    if (terminou) return;
     if (i >= lista.length) {
+      terminou = true;
+      clearInterval(watchdog);
+      document.body.removeChild(holder);
       imprimirViaIframe(lista, qrDataUrls);
       return;
     }
-    // Gera um QR isolado, captura a imagem, e destrói o elemento imediatamente
-    // (evita acumular centenas de nodes/canvas na memória).
-    const holder = document.createElement('div');
-    holder.style.position = 'fixed';
-    holder.style.left = '-9999px';
-    document.body.appendChild(holder);
-    new QRCode(holder, { text: String(lista[i].ID_Peca), width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M });
+    qr.clear();
+    qr.makeCode(String(lista[i].ID_Peca));
 
     setTimeout(function () {
+      if (terminou) return;
       const canvas = holder.querySelector('canvas');
       const img = holder.querySelector('img');
       qrDataUrls[i] = canvas ? canvas.toDataURL('image/png') : (img ? img.src : '');
-      document.body.removeChild(holder);
       i++;
       mostrarProgressoImpressao(i, lista.length);
       gerarProximo();
