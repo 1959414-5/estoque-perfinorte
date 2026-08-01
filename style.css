@@ -592,3 +592,26 @@
     font-weight: 600; font-size: 15px; color: var(--ink);
     display: flex; align-items: center; gap: 10px;
   }
+
+  /* ---------- NOVA SOLICITAÇÃO: cards de item (múltiplas peças) ---------- */
+  .item-card {
+    background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px;
+    padding: 14px; margin-bottom: 14px;
+  }
+  .item-card-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px;
+  }
+  .item-card-titulo {
+    font-family: var(--font-display); font-weight: 700; font-size: 15px;
+    text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft);
+  }
+  .item-remove-btn {
+    background: none; border: none; color: #DC2626; font-size: 12.5px; font-weight: 600;
+  }
+  .item-picker-row { display: flex; gap: 8px; }
+  .item-picker-row .peca-picker-btn { flex: 1; }
+  .item-scan-btn {
+    flex: none; width: 48px; border-radius: var(--radius);
+    border: 1.5px solid var(--line); background: var(--surface); font-size: 19px;
+  }
