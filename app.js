@@ -99,13 +99,12 @@ function toast(msg) {
 // ---------------------------------------------------------
 function montarSelectSolicitantes() {
   const sel = document.getElementById('sel-solicitante');
-  sel.innerHTML = '<option value="" disabled>Selecione seu nome</option>' +
-    CONFIG.solicitantes.map(n => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('');
+  sel.innerHTML = CONFIG.solicitantes.map(n => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('');
   const salvo = localStorage.getItem('nomeUsuario');
   if (salvo && CONFIG.solicitantes.indexOf(salvo) !== -1) {
     sel.value = salvo;
   } else {
-    sel.selectedIndex = 0;
+    sel.selectedIndex = 0; // primeiro da lista (João Paulo) como padrão
   }
 }
 
@@ -178,9 +177,19 @@ function thumbHtml(imagemUrl, tamanhoClasse) {
   return '<div class="' + tamanhoClasse + '-placeholder">▭</div>';
 }
 
+let LIGHTBOX_ROTACAO = 0;
+
 function abrirImagemFullscreen(url) {
-  document.getElementById('lightbox-img').src = url;
+  LIGHTBOX_ROTACAO = 0;
+  const img = document.getElementById('lightbox-img');
+  img.src = url;
+  img.style.transform = 'rotate(0deg)';
   document.getElementById('modal-lightbox').classList.remove('hidden');
+}
+
+function rotacionarImagemFullscreen(graus) {
+  LIGHTBOX_ROTACAO = (LIGHTBOX_ROTACAO + graus + 360) % 360;
+  document.getElementById('lightbox-img').style.transform = 'rotate(' + LIGHTBOX_ROTACAO + 'deg)';
 }
 
 function fecharImagemFullscreen() {
@@ -583,7 +592,7 @@ function renderItemSolicitacaoCard(item, idx) {
 
     '<div class="field">' +
     '<label>Quantidade</label>' +
-    '<input type="number" min="1" value="' + item.quantidade + '" oninput="atualizarQtdItem(\'' + item.uid + '\', this.value)">' +
+    '<input type="number" min="1" inputmode="numeric" value="' + item.quantidade + '" oninput="atualizarQtdItem(\'' + item.uid + '\', this.value)">' +
     '</div>' +
 
     '<div class="field">' +
@@ -845,12 +854,15 @@ function renderDetalhePedidoConteudo() {
 
   document.getElementById('pedido-admin-actions').style.display = MODO_ADMIN ? 'block' : 'none';
 
-  const confUrl = pd.itens.find(it => it.Confirmacao_URL)?.Confirmacao_URL;
+  const confRaw = pd.itens.find(it => it.Confirmacao_URL)?.Confirmacao_URL;
+  const confUrls = confRaw ? String(confRaw).split('\n').filter(Boolean) : [];
   const confWrap = document.getElementById('pedido-confirmacao-anexada');
-  if (confUrl) {
+  if (confUrls.length) {
     confWrap.style.display = 'block';
-    confWrap.innerHTML = '<label style="font-size:13px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:6px;">Print anexado</label>' +
-      '<img src="' + confUrl + '" style="width:100%; max-height:160px; object-fit:cover; border-radius:10px; cursor:zoom-in;" onclick="abrirImagemFullscreen(\'' + confUrl.replace(/'/g, "\\'") + '\')">';
+    confWrap.innerHTML = '<label style="font-size:13px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:6px;">Print' + (confUrls.length > 1 ? 's' : '') + ' anexado' + (confUrls.length > 1 ? 's' : '') + '</label>' +
+      '<div class="photos-preview-row">' + confUrls.map(url =>
+        '<div class="photo-preview-item" style="width:84px; height:84px;"><img src="' + url + '" style="cursor:zoom-in;" onclick="abrirImagemFullscreen(\'' + url.replace(/'/g, "\\'") + '\')"></div>'
+      ).join('') + '</div>';
   } else {
     confWrap.style.display = 'none';
     confWrap.innerHTML = '';
@@ -887,7 +899,7 @@ function renderItemPedidoDetalhe(it) {
 
   if (MODO_ADMIN) {
     html += '<div style="display:flex; gap:6px; margin:6px 0;">';
-    html += '<input type="number" min="1" value="' + it.Quantidade + '" id="qtd-item-' + it.ID_Solicitacao + '" style="flex:1; padding:8px; border:1.5px solid var(--line); border-radius:8px;">';
+    html += '<input type="number" min="1" inputmode="numeric" value="' + it.Quantidade + '" id="qtd-item-' + it.ID_Solicitacao + '" style="flex:1; padding:8px; border:1.5px solid var(--line); border-radius:8px;">';
     html += '<button type="button" class="btn-secondary" style="width:auto; margin:0; padding:8px 12px;" onclick="salvarQtdItemPedido(\'' + it.ID_Solicitacao + '\')">Salvar qtd</button>';
     html += '</div>';
     html += '<label class="urgent-label" style="margin-bottom:8px;">' +
@@ -956,39 +968,88 @@ function salvarQtdItemPedido(idSolicitacao) {
 
 // ---- Confirmação por upload (print do pedido feito na Sênior) ----
 function handleConfirmacaoPedido(e) {
-  const file = e.target.files[0];
-  if (!file) return;
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
   if (!exigirModoAdmin()) { e.target.value = ''; return; }
+  const pd = PEDIDOS_CACHE.find(x => x.pedidoId === PEDIDO_DETALHE_ATUAL);
+  if (!pd) { e.target.value = ''; return; }
+
+  const imagensBase64 = [];
+  let restantes = files.length;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = function (ev) {
+      redimensionarBase64(ev.target.result, 1600, function (reduzida) {
+        imagensBase64.push(reduzida);
+        restantes--;
+        if (restantes === 0) enviarImagensConfirmacao(pd, imagensBase64);
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+  e.target.value = '';
+}
+
+function enviarImagensConfirmacao(pd, imagensBase64) {
+  const botoes = document.querySelectorAll('#pedido-admin-actions .photo-input, #btn-capturar-tela');
+  botoes.forEach(b => b.style.opacity = '0.6');
+  api('anexarConfirmacaoPedido', {
+    idsSolicitacoes: pd.itens.map(it => it.ID_Solicitacao),
+    imagensBase64: imagensBase64,
+    usuario: 'Bárbara'
+  })
+    .then(function (urls) {
+      toast('Confirmação anexada — pedido marcado como "Em produção"');
+      pd.itens.forEach(it => {
+        it.Confirmacao_URL = it.Confirmacao_URL ? it.Confirmacao_URL + '\n' + urls : urls;
+        const idxAtual = STATUS_ORDEM.indexOf(it.Status);
+        const idxAlvo = STATUS_ORDEM.indexOf('Em produção');
+        if (idxAtual !== -1 && idxAtual < idxAlvo) it.Status = 'Em produção';
+      });
+      renderDetalhePedidoConteudo();
+      renderPainel();
+    })
+    .catch(function (err) { toast('Erro: ' + err.message); })
+    .finally(function () { botoes.forEach(b => b.style.opacity = '1'); });
+}
+
+// Captura de tela/janela — abre o seletor nativo do sistema (Windows/Mac/Chrome OS)
+// e tira um "print" de um frame do que foi escolhido. Só funciona em navegador
+// de computador (a API não existe em navegadores de celular).
+async function capturarTelaConfirmacao() {
+  if (!exigirModoAdmin()) return;
   const pd = PEDIDOS_CACHE.find(x => x.pedidoId === PEDIDO_DETALHE_ATUAL);
   if (!pd) return;
 
-  const reader = new FileReader();
-  reader.onload = function (ev) {
-    redimensionarBase64(ev.target.result, 1600, function (reduzida) {
-      const botoes = document.querySelectorAll('#pedido-admin-actions .photo-input');
-      botoes.forEach(b => b.style.opacity = '0.6');
-      api('anexarConfirmacaoPedido', {
-        idsSolicitacoes: pd.itens.map(it => it.ID_Solicitacao),
-        imagemBase64: reduzida,
-        usuario: 'Bárbara'
-      })
-        .then(function (url) {
-          toast('Confirmação anexada — pedido marcado como "Em produção"');
-          pd.itens.forEach(it => {
-            it.Confirmacao_URL = url;
-            const idxAtual = STATUS_ORDEM.indexOf(it.Status);
-            const idxAlvo = STATUS_ORDEM.indexOf('Em produção');
-            if (idxAtual !== -1 && idxAtual < idxAlvo) it.Status = 'Em produção';
-          });
-          renderDetalhePedidoConteudo();
-          renderPainel();
-        })
-        .catch(function (err) { toast('Erro: ' + err.message); })
-        .finally(function () { botoes.forEach(b => b.style.opacity = '1'); });
-    });
-  };
-  reader.readAsDataURL(file);
-  e.target.value = '';
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+    toast('Captura de tela não disponível nesse navegador/dispositivo. Use "Escolher arquivo".');
+    return;
+  }
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+  } catch (e) {
+    return; // usuário cancelou o seletor — não faz nada
+  }
+
+  const video = document.createElement('video');
+  video.srcObject = stream;
+  await video.play();
+  // pequena espera pro primeiro frame renderizar de verdade antes de capturar
+  await new Promise(r => setTimeout(r, 250));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+
+  stream.getTracks().forEach(t => t.stop());
+
+  const base64 = canvas.toDataURL('image/png');
+  redimensionarBase64(base64, 1600, function (reduzida) {
+    enviarImagensConfirmacao(pd, [reduzida]);
+  });
 }
 
 // ---------------------------------------------------------
