@@ -21,7 +21,10 @@
     <!-- ===================== NOVA SOLICITAÇÃO ===================== -->
     <section id="view-nova" class="view view-active">
       <div class="section-label">Nova solicitação</div>
-      <form id="form-nova">
+
+      <button type="button" id="btn-abrir-nova" class="btn-primary" onclick="abrirFormNova()">+ Nova Solicitação</button>
+
+      <form id="form-nova" class="hidden">
 
         <div class="field">
           <label>Seu nome</label>
@@ -38,25 +41,32 @@
         </div>
 
         <button type="submit" id="btn-enviar" class="btn-primary">Enviar solicitação</button>
+        <button type="button" class="btn-secondary" onclick="fecharFormNova()">Cancelar</button>
       </form>
     </section>
 
     <!-- ===================== PAINEL ===================== -->
     <section id="view-painel" class="view">
       <div class="section-label">Painel de solicitações</div>
-      <button type="button" id="btn-modo-admin" class="btn-secondary btn-solto" style="margin:0 0 12px;" onclick="alternarModoAdmin()">🔒 Liberar controles</button>
-      <div class="filter-row" id="periodo-filter-row">
-        <div class="filter-chip selected" onclick="setFiltroPeriodo('hoje', this)">Hoje</div>
-        <div class="filter-chip" onclick="setFiltroPeriodo('7dias', this)">7 dias</div>
-        <div class="filter-chip" onclick="setFiltroPeriodo('30dias', this)">30 dias</div>
-        <div class="filter-chip" onclick="setFiltroPeriodo('todos', this)">Todos</div>
+
+      <div class="painel-toolbar-row">
+        <button type="button" class="btn-secondary btn-solto painel-toolbar-btn" onclick="alternarFiltrosPainel()">🔍 Filtros<span id="badge-filtros-ativos" class="hidden"> ●</span></button>
+        <button type="button" id="btn-modo-admin" class="btn-secondary btn-solto painel-toolbar-btn" onclick="alternarModoAdmin()">🔒 Liberar controles</button>
       </div>
-      <div class="filter-row" id="status-filter-row">
-        <div class="filter-chip selected" onclick="setFiltro('Todos', this)">Todos</div>
-        <div class="filter-chip" onclick="setFiltro('Solicitado', this)">Solicitado</div>
-        <div class="filter-chip" onclick="setFiltro('Em produção', this)">Em produção</div>
-        <div class="filter-chip" onclick="setFiltro('Pronto', this)">Pronto</div>
-        <div class="filter-chip" onclick="setFiltro('Entregue', this)">Entregue</div>
+
+      <div id="painel-filtros-wrap" class="hidden">
+        <div class="filter-row" id="periodo-filter-row">
+          <div class="filter-chip selected" onclick="setFiltroPeriodo('hoje', this)">Hoje</div>
+          <div class="filter-chip" onclick="setFiltroPeriodo('7dias', this)">7 dias</div>
+          <div class="filter-chip" onclick="setFiltroPeriodo('30dias', this)">30 dias</div>
+          <div class="filter-chip" onclick="setFiltroPeriodo('todos', this)">Todos</div>
+        </div>
+        <div class="filter-row" id="status-filter-row">
+          <div class="filter-chip selected" onclick="setFiltro('Todos', this)">Todos</div>
+          <div class="filter-chip" onclick="setFiltro('Solicitado', this)">Solicitado</div>
+          <div class="filter-chip" onclick="setFiltro('Em produção', this)">Em produção</div>
+          <div class="filter-chip" onclick="setFiltro('Entregue', this)">Entregue</div>
+        </div>
       </div>
 
       <div id="lista-painel"></div>
@@ -333,7 +343,7 @@
   </div>
 
   <nav class="bottomnav">
-    <button class="nav-btn nav-active" data-view="nova">Nova</button>
+    <button class="nav-btn nav-active" data-view="nova">Solicitar</button>
     <button class="nav-btn" data-view="painel">Painel</button>
     <button class="nav-btn" data-view="catalogo">Catálogo</button>
   </nav>
