@@ -35,6 +35,7 @@ let FILTRO_LINHA_CATALOGO = 'Todas';
 let FILTRO_ESTOQUE_BAIXO = false;
 let MOVIMENTO_PECA_ATUAL = null;
 let MOVIMENTO_TIPO_ATUAL = 'entrada';
+let MOVIMENTO_ID_SOLICITACAO_ATUAL = null;
 
 // ---------------------------------------------------------
 // INIT
@@ -1435,11 +1436,15 @@ function buscarPecaEscaneada(codigo) {
     const idSolicitacao = codigo.substring('SOLICITACAO:'.length);
     const item = SOLICITACOES.find(s => s.ID_Solicitacao === idSolicitacao);
     if (!item) { document.getElementById('scan-qr-status').textContent = 'Solicitação não encontrada — tenta recarregar a página.'; return; }
+    if (item.Status === 'Entregue' && !confirm('Esse item já foi marcado como recebido antes. Registrar a entrada de novo mesmo assim?')) {
+      return;
+    }
     fecharScanQR();
     abrirMovimento(item.ID_Peca, {
       quantidadeSugerida: item.Quantidade,
       contexto: 'Recebendo pedido de ' + item.Solicitante,
-      observacaoSugerida: 'Recebimento — pedido de ' + item.Solicitante
+      observacaoSugerida: 'Recebimento — pedido de ' + item.Solicitante,
+      idSolicitacao: item.ID_Solicitacao
     });
     return;
   }
@@ -1459,6 +1464,7 @@ function abrirMovimento(idPeca, opcoes) {
   opcoes = opcoes || {};
   MOVIMENTO_PECA_ATUAL = p;
   MOVIMENTO_TIPO_ATUAL = 'entrada';
+  MOVIMENTO_ID_SOLICITACAO_ATUAL = opcoes.idSolicitacao || null;
 
   document.getElementById('movimento-id').textContent = p.Nome_Peca;
   document.getElementById('movimento-nome').textContent = p.ID_Peca + (opcoes.contexto ? ' — ' + opcoes.contexto : '');
@@ -1510,6 +1516,7 @@ function confirmarMovimento() {
   const qtd = Math.max(1, Number(document.getElementById('movimento-qtd').value) || 1);
   const obs = document.getElementById('movimento-obs').value.trim();
   const usuario = localStorage.getItem('nomeUsuario') || 'Desconhecido';
+  const idSolicitacaoOrigem = MOVIMENTO_ID_SOLICITACAO_ATUAL;
 
   const btn = document.getElementById('btn-confirmar-movimento');
   btn.disabled = true;
@@ -1522,6 +1529,22 @@ function confirmarMovimento() {
       // usada pelo card do catálogo) — não precisa buscar tudo de novo no
       // servidor, então o número muda na hora, sem esperar nem dar refresh.
       MOVIMENTO_PECA_ATUAL['Estoque_Atual'] = novoValor;
+
+      // Se essa entrada veio de escanear a etiqueta de recebimento de uma
+      // solicitação, fecha o ciclo: marca aquele item como Entregue. Quando
+      // todos os itens do pedido chegarem em Entregue, o pedido inteiro já
+      // aparece como Entregue sozinho (o status do pedido é sempre o "pior"
+      // status entre os itens dele).
+      if (idSolicitacaoOrigem && MOVIMENTO_TIPO_ATUAL === 'entrada') {
+        api('atualizarStatus', { idSolicitacao: idSolicitacaoOrigem, novoStatus: 'Entregue', usuario: usuario })
+          .then(function () {
+            const it = SOLICITACOES.find(s => s.ID_Solicitacao === idSolicitacaoOrigem);
+            if (it) it.Status = 'Entregue';
+            renderPainel();
+          })
+          .catch(function (err) { toast('Estoque entrou, mas não deu pra marcar como Entregue: ' + err.message); });
+      }
+
       btn.disabled = false;
       btn.textContent = 'Confirmar';
       fecharMovimento();
