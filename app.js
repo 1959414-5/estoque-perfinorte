@@ -872,7 +872,7 @@ function imprimirEtiquetasPedidoRecebimento() {
   });
 
   if (!lista.length) { toast('Nenhum item nesse pedido'); return; }
-  montarEImprimirEtiquetas(lista);
+  montarEImprimirEtiquetas(lista, true);
 }
 
 function renderDetalhePedidoConteudo() {
@@ -884,6 +884,8 @@ function renderDetalhePedidoConteudo() {
     pd.itens.length + ' peça' + (pd.itens.length > 1 ? 's' : '') + ' · ' + tempoRelativo(pd.dataHora);
 
   document.getElementById('pedido-admin-actions').style.display = MODO_ADMIN ? 'block' : 'none';
+  document.getElementById('btn-etiquetas-recebimento').style.display =
+    (MODO_ADMIN && statusResumoPedido(pd) === 'Em produção') ? 'block' : 'none';
 
   const confRaw = pd.itens.find(it => it.Confirmacao_URL)?.Confirmacao_URL;
   const confUrls = confRaw ? String(confRaw).split('\n').filter(Boolean) : [];
@@ -1148,20 +1150,35 @@ function confirmarCropCaptura() {
   const img = document.getElementById('crop-img');
   document.getElementById('modal-crop-captura').classList.add('hidden');
 
+  // Lê o tamanho real da imagem AGORA (não depende do evento onload já ter
+  // disparado — isso é o que causava imagem quebrada quando cortava rápido).
+  const naturalW = img.naturalWidth;
+  const naturalH = img.naturalHeight;
+  if (!naturalW || !naturalH) {
+    toast('A imagem ainda não carregou. Tenta de novo em 1 segundo.');
+    return;
+  }
+
   if (!CROP_SELECAO || CROP_SELECAO.w < 8 || CROP_SELECAO.h < 8) {
     // ninguém arrastou nada de verdade — usa a imagem inteira
     if (CROP_CALLBACK) CROP_CALLBACK(img.src);
     return;
   }
-  const escalaX = CROP_IMG_NATURAL.w / img.clientWidth;
-  const escalaY = CROP_IMG_NATURAL.h / img.clientHeight;
+
+  const clientW = img.clientWidth || naturalW;
+  const clientH = img.clientHeight || naturalH;
+  const escalaX = naturalW / clientW;
+  const escalaY = naturalH / clientH;
+  const larguraFinal = Math.max(1, Math.round(CROP_SELECAO.w * escalaX));
+  const alturaFinal = Math.max(1, Math.round(CROP_SELECAO.h * escalaY));
+
   const canvas = document.createElement('canvas');
-  canvas.width = Math.round(CROP_SELECAO.w * escalaX);
-  canvas.height = Math.round(CROP_SELECAO.h * escalaY);
+  canvas.width = larguraFinal;
+  canvas.height = alturaFinal;
   canvas.getContext('2d').drawImage(
     img,
     CROP_SELECAO.x * escalaX, CROP_SELECAO.y * escalaY, CROP_SELECAO.w * escalaX, CROP_SELECAO.h * escalaY,
-    0, 0, canvas.width, canvas.height
+    0, 0, larguraFinal, alturaFinal
   );
   const cortada = canvas.toDataURL('image/png');
   if (CROP_CALLBACK) CROP_CALLBACK(cortada);
@@ -1424,7 +1441,7 @@ function imprimirEtiquetasCatalogo() {
   montarEImprimirEtiquetas(lista);
 }
 
-function montarEImprimirEtiquetas(lista) {
+function montarEImprimirEtiquetas(lista, modoRecebimento) {
   mostrarProgressoImpressao(0, lista.length);
 
   const holder = document.createElement('div');
@@ -1459,7 +1476,11 @@ function montarEImprimirEtiquetas(lista) {
       terminou = true;
       clearInterval(watchdog);
       document.body.removeChild(holder);
-      imprimirViaIframe(lista, qrDataUrls);
+      if (modoRecebimento) {
+        imprimirViaIframeRecebimento(lista, qrDataUrls);
+      } else {
+        imprimirViaIframe(lista, qrDataUrls);
+      }
       return;
     }
 
@@ -1511,6 +1532,79 @@ function mostrarProgressoImpressao(atual, total) {
   if (atual >= total) {
     setTimeout(() => { const o = document.getElementById('print-progress-overlay'); if (o) o.remove(); }, 400);
   }
+}
+
+// Etiqueta de RECEBIMENTO — mais simples que a do catálogo: sem foto, com a
+// quantidade em destaque (preto, negrito, sublinhado — impressora só tem
+// tinta preta), aviso de "não colar" e marca "ESTOQUE PERFINORTE" no canto,
+// pra ninguém confundir com a etiqueta que vai colada na peça.
+function imprimirViaIframeRecebimento(lista, qrDataUrls) {
+ try {
+  const labelsHtml = lista.map((p, i) => {
+    return '<div class="label-r">' +
+      '<div class="label-r-marca">ESTOQUE PERFINORTE</div>' +
+      '<div class="label-r-body">' +
+      '<div class="label-r-qr-wrap">' +
+      (qrDataUrls[i] ? '<img class="label-r-qr" src="' + qrDataUrls[i] + '">' : '<div class="label-r-qr-vazio">QR indisponível</div>') +
+      '</div>' +
+      '<div class="label-r-info">' +
+      '<div class="label-id-box">' + esc(p.ID_Peca) + '</div>' +
+      '<div class="label-r-qtd">Qtd: ' + esc(p.Quantidade) + '</div>' +
+      '<div class="label-r-desc">' + esc(p.Nome_Peca) + '</div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="label-r-aviso">NÃO COLAR ETIQUETA</div>' +
+      '<div class="label-r-footer"><img class="label-logo" src="' + LOGO_PERFINORTE_B64 + '"></div>' +
+      '</div>';
+  }).join('');
+
+  const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Etiquetas de recebimento</title><style>' +
+    '@page { size: 107mm 48mm; margin: 0; }' +
+    '* { box-sizing: border-box; }' +
+    'body { margin: 0; font-family: Arial, Helvetica, sans-serif; }' +
+    '.label-r { width: 107mm; height: 48mm; padding: 2.5mm 3mm; display: flex; flex-direction: column; gap: 1mm; page-break-after: always; overflow: hidden; }' +
+    '.label-r-marca { text-align: right; font-size: 7pt; font-weight: 800; color: #1a1a1a; letter-spacing: 0.03em; }' +
+    '.label-r-body { display: flex; gap: 3mm; flex: 1; min-height: 0; align-items: center; }' +
+    '.label-r-qr-wrap { flex: none; width: 34mm; display: flex; align-items: center; justify-content: center; }' +
+    '.label-r-qr { width: 34mm; height: 34mm; display: block; }' +
+    '.label-r-qr-vazio { width: 34mm; height: 34mm; border: 1px dashed #999; display: flex; align-items: center; justify-content: center; font-size: 6.5pt; color: #999; text-align: center; }' +
+    '.label-r-info { flex: 1; min-width: 0; }' +
+    '.label-id-box { display: inline-block; border: 0.5mm solid #1a1a1a; border-radius: 1mm; padding: 0.8mm 2mm; font-size: 14pt; font-weight: 800; color: #1a1a1a; line-height: 1.15; }' +
+    '.label-r-qtd { font-size: 16pt; font-weight: 800; color: #000; text-decoration: underline; margin-top: 1.5mm; }' +
+    '.label-r-desc { font-size: 9.5pt; font-weight: 600; color: #1a1a1a; margin-top: 1.5mm; line-height: 1.25; }' +
+    '.label-r-aviso { align-self: center; background: #ddd; color: #000; font-size: 8pt; font-weight: 800; text-decoration: underline; text-transform: uppercase; padding: 1mm 4mm; border-radius: 1mm; }' +
+    '.label-r-footer { display: flex; justify-content: flex-end; }' +
+    '.label-logo { height: 4.5mm; display: block; }' +
+    '</style></head><body>' + labelsHtml + '</body></html>';
+
+  let iframe = document.getElementById('print-iframe');
+  if (iframe) iframe.remove();
+  iframe = document.createElement('iframe');
+  iframe.id = 'print-iframe';
+  iframe.style.cssText = 'position:fixed; right:0; bottom:0; width:0; height:0; border:none;';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  let jaImprimiu = false;
+  function dispararImpressao() {
+    if (jaImprimiu) return;
+    jaImprimiu = true;
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } catch (e) {
+      toast('Erro ao abrir impressão: ' + e.message);
+    }
+  }
+  iframe.onload = function () { setTimeout(dispararImpressao, 150); };
+  setTimeout(dispararImpressao, 700);
+ } catch (e) {
+  toast('Erro ao montar etiquetas: ' + e.message);
+ }
 }
 
 function imprimirViaIframe(lista, qrDataUrls) {
