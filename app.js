@@ -24,9 +24,6 @@ let CONFIG = { status: [], linhas: [], solicitantes: [] };
 let CATALOGO = [];
 let SOLICITACOES = [];
 
-let PECA_SELECIONADA = null;      // peça escolhida pra Nova Solicitação
-let FOTOS_BASE64 = [];            // fotos anexadas à solicitação (várias)
-
 let PECA_IMAGEM_BASE64 = null;    // nova foto anexada no form de peça (se trocou)
 let PECA_IMAGEM_URL_ATUAL = '';   // url já existente da peça (se editando)
 let MODO_PECA_ORIGEM = 'catalogo'; // 'catalogo' | 'solicitacao' — de onde abriu o form de peça
@@ -67,8 +64,6 @@ document.addEventListener('DOMContentLoaded', function () {
     btn.addEventListener('click', () => trocarView(btn.dataset.view));
   });
 
-  document.getElementById('inp-foto-camera').addEventListener('change', e => handleFotosChange(e));
-  document.getElementById('inp-foto-arquivo').addEventListener('change', e => handleFotosChange(e));
   document.getElementById('peca-foto-camera').addEventListener('change', e => handleFotoChange(e, 'peca'));
   document.getElementById('peca-foto-arquivo').addEventListener('change', e => handleFotoChange(e, 'peca'));
 
@@ -194,7 +189,10 @@ function fecharImagemFullscreen() {
 // ---------------------------------------------------------
 // SELETOR DE PEÇA (Nova Solicitação)
 // ---------------------------------------------------------
-function abrirPickerPeca() {
+let PICKER_CALLBACK = null;
+
+function abrirPickerPeca(callback) {
+  PICKER_CALLBACK = callback;
   document.getElementById('inp-busca-picker').value = '';
   FILTRO_LINHA_PICKER = 'Todas';
   document.querySelectorAll('#picker-linha-chips .filter-chip').forEach((c, i) => c.classList.toggle('selected', i === 0));
@@ -229,31 +227,12 @@ function filtrarPickerPeca() {
       '<div class="picker-item-title">' + esc(p.Nome_Peca) + '</div>' +
       '<div class="picker-item-sub">' + esc(p.MP || '') + (p.Espessura ? ' · ' + esc(formatarEspessura(p.Espessura)) : '') + ' · ' + esc(p.Linha || '') + '</div>' +
       '</div>';
-    div.addEventListener('click', () => { selecionarPeca(p); fecharPickerPeca(); });
+    div.addEventListener('click', () => {
+      fecharPickerPeca();
+      if (PICKER_CALLBACK) PICKER_CALLBACK(p);
+    });
     wrap.appendChild(div);
   });
-}
-
-function selecionarPeca(p) {
-  PECA_SELECIONADA = p;
-  const btn = document.getElementById('btn-abrir-picker-peca');
-  btn.classList.add('filled');
-  document.getElementById('peca-picker-icon').innerHTML = p.Imagem_URL
-    ? '<img src="' + p.Imagem_URL + '">' : '▭';
-  document.getElementById('peca-picker-placeholder').style.display = 'none';
-  document.getElementById('peca-picker-info').style.display = 'block';
-  document.getElementById('peca-picker-title').textContent = p.Nome_Peca;
-  document.getElementById('peca-picker-sub').textContent =
-    (p.MP || '') + (p.Espessura ? ' · ' + formatarEspessura(p.Espessura) : '') + (p.Linha ? ' · ' + p.Linha : '');
-}
-
-function limparPecaSelecionada() {
-  PECA_SELECIONADA = null;
-  const btn = document.getElementById('btn-abrir-picker-peca');
-  btn.classList.remove('filled');
-  document.getElementById('peca-picker-icon').innerHTML = '🔍';
-  document.getElementById('peca-picker-placeholder').style.display = 'block';
-  document.getElementById('peca-picker-info').style.display = 'none';
 }
 
 // ---------------------------------------------------------
@@ -387,8 +366,8 @@ function salvarPecaCatalogo(e) {
         toast('Peça cadastrada');
         fecharModalPeca();
         carregarCatalogo();
-        if (MODO_PECA_ORIGEM === 'solicitacao') {
-          selecionarPeca({
+        if (MODO_PECA_ORIGEM === 'solicitacao' && PICKER_CALLBACK) {
+          PICKER_CALLBACK({
             ID_Peca: resultado.id, Nome_Peca: resultado.nome,
             MP: resultado.mp, Espessura: resultado.espessura,
             Linha: resultado.linha, Imagem_URL: resultado.imagemUrl
@@ -505,83 +484,195 @@ function handleFotoChange(e, alvo) {
   reader.readAsDataURL(file);
 }
 
-function handleFotosChange(e) {
-  const files = Array.from(e.target.files || []);
-  if (!files.length) return;
-  let restantes = files.length;
-  files.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = function (ev) {
-      redimensionarBase64(ev.target.result, 1600, function (reduzida) {
-        FOTOS_BASE64.push(reduzida);
-        restantes--;
-        if (restantes === 0) renderFotosPreview();
-      });
-    };
-    reader.readAsDataURL(file);
+// ---------------------------------------------------------
+// NOVA SOLICITAÇÃO — múltiplos itens, cada um com peça/qtd/urgente/fotos
+// ---------------------------------------------------------
+let ITENS_SOLICITACAO = [];
+let PROXIMO_ITEM_UID = 1;
+
+function novoItemVazio() {
+  return { uid: 'it' + (PROXIMO_ITEM_UID++), peca: null, quantidade: 1, urgente: false, fotos: [] };
+}
+
+function acharItemSolicitacao(uid) {
+  return ITENS_SOLICITACAO.find(it => it.uid === uid);
+}
+
+function adicionarItemSolicitacao() {
+  ITENS_SOLICITACAO.push(novoItemVazio());
+  renderItensSolicitacao();
+}
+
+function removerItemSolicitacao(uid) {
+  if (ITENS_SOLICITACAO.length <= 1) { toast('Precisa ter pelo menos uma peça'); return; }
+  ITENS_SOLICITACAO = ITENS_SOLICITACAO.filter(it => it.uid !== uid);
+  renderItensSolicitacao();
+}
+
+function atualizarQtdItem(uid, valor) {
+  const item = acharItemSolicitacao(uid);
+  if (item) item.quantidade = Math.max(1, Number(valor) || 1);
+}
+
+function atualizarUrgenteItem(uid, valor) {
+  const item = acharItemSolicitacao(uid);
+  if (item) item.urgente = valor;
+}
+
+function abrirPickerParaItem(uid) {
+  abrirPickerPeca(function (p) {
+    const item = acharItemSolicitacao(uid);
+    if (item) { item.peca = p; renderItensSolicitacao(); }
   });
-  e.target.value = ''; // permite tirar/escolher a mesma foto de novo depois
 }
 
-function renderFotosPreview() {
-  const wrap = document.getElementById('fotos-preview-row');
-  wrap.innerHTML = FOTOS_BASE64.map((foto, i) =>
+function abrirScanParaItem(uid) {
+  abrirScanQR(function (p) {
+    const item = acharItemSolicitacao(uid);
+    if (item) { item.peca = p; renderItensSolicitacao(); }
+  });
+}
+
+function removerFotoItem(uid, idx) {
+  const item = acharItemSolicitacao(uid);
+  if (item) { item.fotos.splice(idx, 1); renderItensSolicitacao(); }
+}
+
+function renderItensSolicitacao() {
+  const wrap = document.getElementById('itens-solicitacao');
+  wrap.innerHTML = ITENS_SOLICITACAO.map((item, idx) => renderItemSolicitacaoCard(item, idx)).join('');
+}
+
+function renderItemSolicitacaoCard(item, idx) {
+  const p = item.peca;
+  const pickerIcon = p ? (p.Imagem_URL ? '<img src="' + p.Imagem_URL + '">' : '▭') : '🔍';
+  const subInfo = p ? esc((p.MP || '') + (p.Espessura ? ' · ' + formatarEspessura(p.Espessura) : '') + (p.Linha ? ' · ' + p.Linha : '')) : '';
+
+  const fotosHtml = item.fotos.map((foto, fi) =>
     '<div class="photo-preview-item"><img src="' + foto + '">' +
-    '<button type="button" class="photo-preview-remove" onclick="removerFoto(' + i + ')">×</button></div>'
+    '<button type="button" class="photo-preview-remove" onclick="removerFotoItem(\'' + item.uid + '\',' + fi + ')">×</button></div>'
   ).join('');
+
+  return '<div class="item-card">' +
+    '<div class="item-card-head">' +
+    '<span class="item-card-titulo">Peça ' + (idx + 1) + '</span>' +
+    (ITENS_SOLICITACAO.length > 1 ? '<button type="button" class="item-remove-btn" onclick="removerItemSolicitacao(\'' + item.uid + '\')">🗑 remover</button>' : '') +
+    '</div>' +
+
+    '<div class="field">' +
+    '<div class="item-picker-row">' +
+    '<button type="button" class="peca-picker-btn' + (p ? ' filled' : '') + '" onclick="abrirPickerParaItem(\'' + item.uid + '\')">' +
+    '<span class="peca-picker-btn-icon">' + pickerIcon + '</span>' +
+    '<span class="peca-picker-btn-text">' +
+    (p
+      ? '<span class="peca-picker-btn-title">' + esc(p.Nome_Peca) + '</span><br><span class="peca-picker-btn-sub">' + subInfo + '</span>'
+      : '<span class="peca-picker-btn-placeholder">Toque para buscar a peça</span>') +
+    '</span>' +
+    '<span class="peca-picker-chevron">›</span>' +
+    '</button>' +
+    '<button type="button" class="item-scan-btn" onclick="abrirScanParaItem(\'' + item.uid + '\')" title="Escanear QR">📷</button>' +
+    '</div>' +
+    '</div>' +
+
+    '<div class="field">' +
+    '<label>Quantidade</label>' +
+    '<input type="number" min="1" value="' + item.quantidade + '" oninput="atualizarQtdItem(\'' + item.uid + '\', this.value)">' +
+    '</div>' +
+
+    '<div class="field">' +
+    '<label class="urgent-label">' +
+    '<input type="checkbox" ' + (item.urgente ? 'checked' : '') + ' onchange="atualizarUrgenteItem(\'' + item.uid + '\', this.checked)">' +
+    '<span class="urgent-box">🔴 Marcar como urgente</span>' +
+    '</label>' +
+    '</div>' +
+
+    '<div class="field">' +
+    '<label>Fotos desta peça (opcional)</label>' +
+    '<div class="photo-buttons-row">' +
+    '<div class="photo-input"><input type="file" accept="image/*" capture="environment" class="item-foto-input" data-uid="' + item.uid + '"> 📷 Tirar foto</div>' +
+    '<div class="photo-input"><input type="file" accept="image/*" multiple class="item-foto-input" data-uid="' + item.uid + '"> 🖼️ Escolher arquivo(s)</div>' +
+    '</div>' +
+    '<div class="photos-preview-row">' + fotosHtml + '</div>' +
+    '</div>' +
+    '</div>';
 }
 
-function removerFoto(i) {
-  FOTOS_BASE64.splice(i, 1);
-  renderFotosPreview();
-}
+// Delegação de evento: os inputs de foto são recriados a cada render,
+// então escuta no container fixo em vez de em cada input individualmente.
+document.addEventListener('DOMContentLoaded', function () {
+  document.getElementById('itens-solicitacao').addEventListener('change', function (e) {
+    if (!e.target.classList.contains('item-foto-input')) return;
+    const uid = e.target.dataset.uid;
+    const item = acharItemSolicitacao(uid);
+    if (!item) return;
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    let restantes = files.length;
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = function (ev) {
+        redimensionarBase64(ev.target.result, 1600, function (reduzida) {
+          item.fotos.push(reduzida);
+          restantes--;
+          if (restantes === 0) renderItensSolicitacao();
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  });
 
-// ---------------------------------------------------------
-// NOVA SOLICITAÇÃO
-// ---------------------------------------------------------
-function enviarSolicitacao(e) {
+  ITENS_SOLICITACAO = [novoItemVazio()];
+  renderItensSolicitacao();
+});
+
+async function enviarSolicitacao(e) {
   e.preventDefault();
   const solicitante = document.getElementById('sel-solicitante').value;
-  const quantidade = document.getElementById('inp-quantidade').value;
-
   if (!solicitante) { toast('Selecione seu nome'); return; }
-  if (!PECA_SELECIONADA) { toast('Selecione (ou cadastre) a peça'); return; }
-  if (!quantidade || quantidade <= 0) { toast('Informe a quantidade'); return; }
+
+  for (const item of ITENS_SOLICITACAO) {
+    if (!item.peca) { toast('Selecione a peça em todas as linhas'); return; }
+    if (!item.quantidade || item.quantidade <= 0) { toast('Quantidade inválida em alguma peça'); return; }
+  }
 
   localStorage.setItem('nomeUsuario', solicitante);
-
-  const dados = {
-    solicitante: solicitante,
-    idPeca: PECA_SELECIONADA.ID_Peca,
-    nomePeca: PECA_SELECIONADA.Nome_Peca,
-    quantidade: Number(quantidade),
-    observacao: document.getElementById('inp-observacao').value.trim(),
-    urgente: document.getElementById('inp-urgente').checked,
-    fotos: FOTOS_BASE64
-  };
+  const observacao = document.getElementById('inp-observacao').value.trim();
+  const pedidoId = 'PED' + Date.now();
 
   const btn = document.getElementById('btn-enviar');
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Enviando...';
 
-  api('salvarSolicitacao', { dados: dados })
-    .then(function () {
-      toast('Solicitação enviada!');
-      document.getElementById('form-nova').reset();
-      document.getElementById('sel-solicitante').value = solicitante;
-      limparPecaSelecionada();
-      FOTOS_BASE64 = [];
-      renderFotosPreview();
-      document.getElementById('inp-urgente').checked = false;
-      btn.disabled = false;
-      btn.textContent = 'Enviar solicitação';
-      trocarView('painel');
-    })
-    .catch(function (err) {
-      toast('Erro ao enviar: ' + err.message);
-      btn.disabled = false;
-      btn.textContent = 'Enviar solicitação';
-    });
+  try {
+    for (let i = 0; i < ITENS_SOLICITACAO.length; i++) {
+      const item = ITENS_SOLICITACAO[i];
+      btn.innerHTML = '<span class="spinner"></span> Enviando ' + (i + 1) + '/' + ITENS_SOLICITACAO.length + '...';
+      await api('salvarSolicitacao', {
+        dados: {
+          pedidoId: pedidoId,
+          solicitante: solicitante,
+          idPeca: item.peca.ID_Peca,
+          nomePeca: item.peca.Nome_Peca,
+          quantidade: item.quantidade,
+          observacao: observacao,
+          urgente: item.urgente,
+          fotos: item.fotos
+        }
+      });
+    }
+    toast('Solicitação enviada! (' + ITENS_SOLICITACAO.length + (ITENS_SOLICITACAO.length > 1 ? ' peças)' : ' peça)'));
+    document.getElementById('inp-observacao').value = '';
+    ITENS_SOLICITACAO = [novoItemVazio()];
+    renderItensSolicitacao();
+    document.getElementById('sel-solicitante').value = solicitante;
+    btn.disabled = false;
+    btn.textContent = 'Enviar solicitação';
+    trocarView('painel');
+  } catch (err) {
+    toast('Erro ao enviar: ' + err.message);
+    btn.disabled = false;
+    btn.textContent = 'Enviar solicitação';
+  }
 }
 
 // ---------------------------------------------------------
@@ -757,8 +848,10 @@ function carregarHistorico(id) {
 let SCAN_STREAM = null;
 let SCAN_RAF = null;
 let SCAN_CANVAS = null;
+let SCAN_CALLBACK = null;
 
-function abrirScanQR() {
+function abrirScanQR(callback) {
+  SCAN_CALLBACK = callback || function (p) { abrirMovimento(p.ID_Peca); };
   document.getElementById('inp-codigo-manual').value = '';
   document.getElementById('scan-qr-status').textContent = '';
   document.getElementById('scan-fallback').style.display = 'none';
@@ -815,7 +908,7 @@ function lerFrame() {
   const resultado = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
   if (resultado && resultado.data) {
     pararCameraScan();
-    buscarPecaEAbrirMovimento(resultado.data);
+    buscarPecaEscaneada(resultado.data);
     return;
   }
   SCAN_RAF = requestAnimationFrame(lerFrame);
@@ -840,7 +933,7 @@ function ativarFallbackFoto(motivo) {
 function confirmarCodigoManual() {
   const codigo = document.getElementById('inp-codigo-manual').value.trim();
   if (!codigo) { toast('Digite ou escaneie um código'); return; }
-  buscarPecaEAbrirMovimento(codigo);
+  buscarPecaEscaneada(codigo);
 }
 
 function handleFotoQR(e) {
@@ -864,7 +957,7 @@ function handleFotoQR(e) {
       const resultado = jsQR(imageData.data, canvas.width, canvas.height);
       if (resultado && resultado.data) {
         document.getElementById('scan-qr-status').textContent = '';
-        buscarPecaEAbrirMovimento(resultado.data);
+        buscarPecaEscaneada(resultado.data);
       } else {
         document.getElementById('scan-qr-status').textContent = 'Não consegui ler o QR nessa foto. Tente de novo, bem de frente e com boa luz.';
       }
@@ -875,11 +968,11 @@ function handleFotoQR(e) {
   e.target.value = '';
 }
 
-function buscarPecaEAbrirMovimento(codigo) {
+function buscarPecaEscaneada(codigo) {
   const p = CATALOGO.find(x => String(x.ID_Peca).trim().toLowerCase() === String(codigo).trim().toLowerCase());
   if (!p) { document.getElementById('scan-qr-status').textContent = 'Peça "' + codigo + '" não encontrada no catálogo.'; return; }
   fecharScanQR();
-  abrirMovimento(p.ID_Peca);
+  if (SCAN_CALLBACK) SCAN_CALLBACK(p);
 }
 
 // ---------------------------------------------------------
