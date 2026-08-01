@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -43,6 +44,7 @@
     <!-- ===================== PAINEL ===================== -->
     <section id="view-painel" class="view">
       <div class="section-label">Painel de solicitações</div>
+      <button type="button" id="btn-modo-admin" class="btn-secondary" style="margin:0 0 12px;" onclick="alternarModoAdmin()">🔒 Liberar controles</button>
       <div class="filter-row" id="status-filter-row">
         <div class="filter-chip selected" onclick="setFiltro('Todos', this)">Todos</div>
         <div class="filter-chip" onclick="setFiltro('Solicitado', this)">Solicitado</div>
@@ -86,20 +88,18 @@
   </div>
 
   <!-- ===================== MODAL: DETALHE DA SOLICITAÇÃO ===================== -->
-  <div id="modal-detalhe" class="modal-overlay hidden">
-    <div class="modal-sheet" style="position:relative;">
+  <div id="modal-detalhe-pedido" class="modal-overlay hidden">
+    <div class="modal-sheet" style="position:relative; max-height:88vh;">
       <div class="modal-handle"></div>
-      <button class="modal-close" onclick="fecharModalDetalhe()">×</button>
-      <div class="modal-title" id="detalhe-titulo"></div>
-      <div class="ticket-sub" id="detalhe-id" style="margin-bottom:14px;"></div>
+      <button class="modal-close" onclick="fecharDetalhePedido()">×</button>
+      <div class="modal-title" id="pedido-detalhe-titulo"></div>
+      <div class="ticket-sub" id="pedido-detalhe-sub" style="margin-bottom:14px;"></div>
 
-      <div id="detalhe-info"></div>
+      <div id="pedido-admin-actions" style="display:none;">
+        <button type="button" class="btn-primary" onclick="enviarConfirmacaoPedido()">📤 Enviar confirmação (marca "Em produção")</button>
+      </div>
 
-      <div class="section-label">Mudar status</div>
-      <div id="detalhe-status-actions" class="status-actions"></div>
-
-      <div class="section-label">Histórico</div>
-      <div id="detalhe-historico"></div>
+      <div id="pedido-itens-lista"></div>
     </div>
   </div>
 
