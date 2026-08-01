@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Estoque de Peças</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+</head>
+<body>
+
+  <header class="topbar">
+    <span class="topbar-title">Estoque de Peças</span>
+    <span class="topbar-sub">Perfinorte · Expedição</span>
+  </header>
+
+  <main id="app">
+
+    <!-- ===================== NOVA SOLICITAÇÃO ===================== -->
+    <section id="view-nova" class="view view-active">
+      <div class="section-label">Nova solicitação</div>
+      <form id="form-nova">
+
+        <div class="field">
+          <label>Seu nome</label>
+          <select id="sel-solicitante" required></select>
+        </div>
+
+        <div class="field">
+          <label>Peça</label>
+          <button type="button" id="btn-abrir-picker-peca" class="peca-picker-btn" onclick="abrirPickerPeca()">
+            <span class="peca-picker-btn-icon" id="peca-picker-icon">🔍</span>
+            <span class="peca-picker-btn-text">
+              <span id="peca-picker-placeholder" class="peca-picker-btn-placeholder">Toque para selecionar a peça</span>
+              <span id="peca-picker-info" style="display:none;">
+                <span class="peca-picker-btn-title" id="peca-picker-title"></span><br>
+                <span class="peca-picker-btn-sub" id="peca-picker-sub"></span>
+              </span>
+            </span>
+            <span class="peca-picker-chevron">›</span>
+          </button>
+        </div>
+
+        <div class="field">
+          <label>Quantidade</label>
+          <input type="number" id="inp-quantidade" min="1" placeholder="Ex: 50" required>
+        </div>
+
+        <div class="field">
+          <label class="urgent-label">
+            <input type="checkbox" id="inp-urgente">
+            <span class="urgent-box">🔴 Marcar como urgente</span>
+          </label>
+        </div>
+
+        <div class="field">
+          <label>Fotos (opcional, pode enviar várias)</label>
+          <div class="photo-buttons-row">
+            <div class="photo-input">
+              <input type="file" id="inp-foto-camera" accept="image/*" capture="environment">
+              📷 Tirar foto
+            </div>
+            <div class="photo-input">
+              <input type="file" id="inp-foto-arquivo" accept="image/*" multiple>
+              🖼️ Escolher arquivo(s)
+            </div>
+          </div>
+          <div id="fotos-preview-row" class="photos-preview-row"></div>
+        </div>
+
+        <div class="field">
+          <label>Observação (opcional)</label>
+          <textarea id="inp-observacao" placeholder="Alguma informação extra..."></textarea>
+        </div>
+
+        <button type="submit" id="btn-enviar" class="btn-primary">Enviar solicitação</button>
+      </form>
+    </section>
+
+    <!-- ===================== PAINEL ===================== -->
+    <section id="view-painel" class="view">
+      <div class="section-label">Painel de solicitações</div>
+      <div class="filter-row" id="status-filter-row">
+        <div class="filter-chip selected" onclick="setFiltro('Todos', this)">Todos</div>
+        <div class="filter-chip" onclick="setFiltro('Solicitado', this)">Solicitado</div>
+        <div class="filter-chip" onclick="setFiltro('Em produção', this)">Em produção</div>
+        <div class="filter-chip" onclick="setFiltro('Pronto', this)">Pronto</div>
+        <div class="filter-chip" onclick="setFiltro('Entregue', this)">Entregue</div>
+      </div>
+      <div id="lista-painel"></div>
+    </section>
+
+    <!-- ===================== CATÁLOGO ===================== -->
+    <section id="view-catalogo" class="view">
+      <div class="section-label">Catálogo de peças</div>
+      <div class="search-box">
+        <input type="text" id="inp-busca-catalogo" placeholder="Buscar peça...">
+      </div>
+      <div id="catalogo-linha-chips" class="filter-row"></div>
+      <div class="catalogo-toolbar">
+        <button type="button" class="btn-secondary" style="margin:0;" onclick="abrirScanQR()">📷 Escanear QR</button>
+        <button type="button" class="btn-secondary" style="margin:0;" onclick="imprimirEtiquetasCatalogo()">🖨️ Imprimir etiquetas desta lista</button>
+      </div>
+      <div id="lista-catalogo"></div>
+      <button class="fab" type="button" onclick="abrirModalPecaNova('catalogo')">+</button>
+    </section>
+
+  </main>
+
+  <!-- ===================== MODAL: SELECIONAR PEÇA ===================== -->
+  <div id="modal-picker-peca" class="modal-overlay hidden">
+    <div class="modal-sheet" style="position:relative; max-height:85vh;">
+      <div class="modal-handle"></div>
+      <button class="modal-close" onclick="fecharPickerPeca()">×</button>
+      <div class="modal-title" style="margin-bottom:10px;">Selecionar peça</div>
+      <div class="picker-search">
+        <input type="text" id="inp-busca-picker" placeholder="Buscar peça..." style="width:100%; padding:12px 14px; border-radius:10px; border:1.5px solid var(--line); margin-bottom:10px;">
+        <div id="picker-linha-chips" class="filter-row"></div>
+      </div>
+      <div id="lista-picker"></div>
+      <button type="button" class="btn-secondary" onclick="abrirModalPecaDoPicker()">+ Peça não está no catálogo</button>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL: DETALHE DA SOLICITAÇÃO ===================== -->
+  <div id="modal-detalhe" class="modal-overlay hidden">
+    <div class="modal-sheet" style="position:relative;">
+      <div class="modal-handle"></div>
+      <button class="modal-close" onclick="fecharModalDetalhe()">×</button>
+      <div class="modal-title" id="detalhe-titulo"></div>
+      <div class="ticket-sub" id="detalhe-id" style="margin-bottom:14px;"></div>
+
+      <div id="detalhe-info"></div>
+
+      <div class="section-label">Mudar status</div>
+      <div id="detalhe-status-actions" class="status-actions"></div>
+
+      <div class="section-label">Histórico</div>
+      <div id="detalhe-historico"></div>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL: NOVA / EDITAR PEÇA ===================== -->
+  <div id="modal-peca" class="modal-overlay hidden">
+    <div class="modal-sheet" style="position:relative;">
+      <div class="modal-handle"></div>
+      <button class="modal-close" onclick="fecharModalPeca()">×</button>
+      <div class="modal-title" id="modal-peca-titulo">Nova peça no catálogo</div>
+      <form id="form-peca" style="margin-top:14px;">
+        <input type="hidden" id="peca-id-edicao">
+
+        <div class="field">
+          <label>ID da peça (código do Senior)</label>
+          <input type="text" id="peca-id-input" required placeholder="Ex: 1-0212">
+          <div id="peca-id-aviso" style="color:#DC2626; font-size:12.5px; margin-top:4px;"></div>
+        </div>
+
+        <div class="field">
+          <label>Nome da peça</label>
+          <input type="text" id="peca-nome" required placeholder="Ex: Encosto do fueiro 1000mm">
+        </div>
+
+        <div class="field">
+          <label>Linha</label>
+          <select id="peca-linha"></select>
+        </div>
+
+        <div class="field">
+          <label>MP / Material</label>
+          <input type="text" id="peca-mp" placeholder="Ex: Chapa FQ">
+        </div>
+
+        <div class="field">
+          <label>Espessura</label>
+          <input type="text" id="peca-espessura" placeholder="Ex: 2,00mm">
+        </div>
+
+        <div class="field">
+          <label>Serviços</label>
+          <input type="text" id="peca-servicos" placeholder="Ex: Guilhotina, Dobra">
+        </div>
+
+        <div style="display:flex; gap:10px;">
+          <div class="field" style="flex:1;">
+            <label>Largura (mm)</label>
+            <input type="text" id="peca-largura" placeholder="Ex: 120">
+          </div>
+          <div class="field" style="flex:1;">
+            <label>Comprimento (mm)</label>
+            <input type="text" id="peca-comprimento" placeholder="Ex: 1.000,00">
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Observações (opcional)</label>
+          <textarea id="peca-obs"></textarea>
+        </div>
+
+        <div style="display:flex; gap:10px;">
+          <div class="field" style="flex:1;">
+            <label>Estoque Atual</label>
+            <input type="number" id="peca-estoque-atual" min="0" placeholder="0">
+          </div>
+          <div class="field" style="flex:1;">
+            <label>Estoque Mínimo (alerta)</label>
+            <input type="number" id="peca-estoque-minimo" min="0" placeholder="0">
+          </div>
+        </div>
+
+        <div class="field" id="campo-peca-ativo" style="display:none;">
+          <label class="toggle-switch-label">
+            <span class="toggle-switch"><input type="checkbox" id="peca-ativo" checked><span class="toggle-switch-track"></span></span>
+            Ativo
+          </label>
+        </div>
+
+        <div class="field">
+          <label>Imagem da peça (opcional)</label>
+          <div class="photo-buttons-row">
+            <div class="photo-input">
+              <input type="file" id="peca-foto-camera" accept="image/*" capture="environment">
+              📷 Tirar foto
+            </div>
+            <div class="photo-input">
+              <input type="file" id="peca-foto-arquivo" accept="image/*">
+              🖼️ Escolher arquivo
+            </div>
+          </div>
+          <img id="peca-imagem-preview" class="photo-preview">
+        </div>
+
+        <button type="submit" class="btn-primary">Salvar peça</button>
+        <button type="button" class="btn-secondary" id="btn-imprimir-etiqueta" style="display:none;" onclick="imprimirEtiquetaUnica(document.getElementById('peca-id-edicao').value)">🖨️ Imprimir etiqueta</button>
+        <button type="button" class="btn-secondary" id="btn-remover-peca" style="display:none; color:#DC2626; border-color:#DC2626;" onclick="inativarPecaAtual(document.getElementById('peca-id-edicao').value)">Remover do catálogo</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL: ESCANEAR QR DO PRODUTO ===================== -->
+  <div id="modal-scan-qr" class="modal-overlay hidden">
+    <div class="modal-sheet" style="position:relative;">
+      <div class="modal-handle"></div>
+      <button class="modal-close" onclick="fecharScanQR()">×</button>
+      <div class="modal-title" style="margin-bottom:14px;">Escanear QR do Produto</div>
+
+      <div id="scan-video-wrap" style="position:relative; background:#000; border-radius:12px; overflow:hidden; aspect-ratio:1/1; margin-bottom:10px;">
+        <video id="scan-video" playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>
+        <div class="scan-viewfinder"></div>
+      </div>
+
+      <div id="scan-fallback" style="display:none; margin-bottom:10px;">
+        <div style="font-size:13px; color:var(--ink-soft); margin-bottom:8px;">Não consegui abrir a câmera ao vivo (pode ser bloqueio do Google). Tire uma foto da etiqueta:</div>
+        <div class="photo-input">
+          <input type="file" id="inp-foto-qr" accept="image/*" capture="environment">
+          📷 Tirar foto do QR
+        </div>
+      </div>
+
+      <div style="display:flex; gap:8px; align-items:stretch;">
+        <input type="text" id="inp-codigo-manual" placeholder="Ou digite o código..." style="flex:1; padding:12px 14px; border-radius:10px; border:1.5px solid var(--line);">
+        <button type="button" class="btn-primary" style="width:auto; margin:0; padding:0 18px;" onclick="confirmarCodigoManual()">OK</button>
+      </div>
+      <div id="scan-qr-status" style="margin-top:10px; font-size:13px; color:var(--ink-soft); min-height:18px;"></div>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL: ENTRADA / SAÍDA DE ESTOQUE ===================== -->
+  <div id="modal-movimento" class="modal-overlay hidden">
+    <div class="modal-sheet" style="position:relative;">
+      <div class="modal-handle"></div>
+      <button class="modal-close" onclick="fecharMovimento()">×</button>
+      <div class="modal-title" id="movimento-id"></div>
+      <div class="ticket-sub" id="movimento-nome" style="margin-bottom:16px;"></div>
+
+      <div class="radio-row" style="margin-bottom:16px;">
+        <div class="radio-chip movimento-tipo-btn selected" data-tipo="entrada" style="border-color:#15803D;" onclick="selecionarTipoMovimento('entrada', this)">+ Entrada</div>
+        <div class="radio-chip movimento-tipo-btn" data-tipo="saida" onclick="selecionarTipoMovimento('saida', this)">− Saída</div>
+      </div>
+
+      <div class="field">
+        <label>Quantidade</label>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button type="button" class="stepper-btn" onclick="ajustarQtdMovimento(-1)">−</button>
+          <input type="number" id="movimento-qtd" value="1" min="1" style="flex:1; text-align:center; padding:12px; border-radius:10px; border:1.5px solid var(--line);" oninput="atualizarPreviewMovimento()">
+          <button type="button" class="stepper-btn" onclick="ajustarQtdMovimento(1)">+</button>
+        </div>
+      </div>
+
+      <div class="movimento-preview" id="movimento-preview"></div>
+
+      <div class="field">
+        <label>Observação (opcional)</label>
+        <input type="text" id="movimento-obs" placeholder="Opcional...">
+      </div>
+
+      <button type="button" class="btn-secondary" onclick="fecharMovimento()">Cancelar</button>
+      <button type="button" class="btn-primary" onclick="confirmarMovimento()">Confirmar</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <!-- ===================== LIGHTBOX: IMAGEM EM TELA CHEIA ===================== -->
+  <div id="modal-lightbox" class="lightbox hidden" onclick="fecharImagemFullscreen()">
+    <button class="lightbox-close" onclick="fecharImagemFullscreen()">×</button>
+    <img id="lightbox-img" src="" onclick="event.stopPropagation()">
+  </div>
+
+  <nav class="bottomnav">
+    <button class="nav-btn nav-active" data-view="nova">Nova</button>
+    <button class="nav-btn" data-view="painel">Painel</button>
+    <button class="nav-btn" data-view="catalogo">Catálogo</button>
+  </nav>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
