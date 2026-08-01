@@ -1089,10 +1089,14 @@ function imprimirViaIframe(lista, qrDataUrls) {
       (qrDataUrls[i] ? '<img class="label-qr" src="' + qrDataUrls[i] + '">' : '<div class="label-qr-vazio">QR indisponível<br>pra esta peça</div>') +
       '</div>' +
       '<div class="label-content">' +
-      (temFoto ? '<div class="label-top-row"><img class="label-photo" src="' + p.Imagem_URL + '"></div>' : '') +
-      '<div class="label-text">' +
+      '<div class="label-header">' +
+      '<div class="label-id-name">' +
       '<div class="label-id">' + esc(p.ID_Peca) + '</div>' +
       '<div class="label-name">' + esc(p.Nome_Peca) + '</div>' +
+      '</div>' +
+      (temFoto ? '<img class="label-photo" src="' + p.Imagem_URL + '">' : '') +
+      '</div>' +
+      '<div class="label-meta-block">' +
       (p.MP ? '<div class="label-meta">MP: ' + esc(p.MP) + (p.Espessura ? ' de ' + esc(formatarEspessura(p.Espessura)) : '') + '</div>' : '') +
       (dims ? '<div class="label-meta">' + dims + '</div>' : '') +
       (p.Servicos ? '<div class="label-meta">Serviço: ' + esc(p.Servicos) + '</div>' : '') +
@@ -1106,15 +1110,16 @@ function imprimirViaIframe(lista, qrDataUrls) {
     '* { box-sizing: border-box; }' +
     'body { margin: 0; font-family: Arial, Helvetica, sans-serif; }' +
     '.label { width: 107mm; height: 48mm; padding: 3mm; display: flex; gap: 2.5mm; page-break-after: always; overflow: hidden; }' +
-    '.label-qr-wrap { flex: none; width: 32mm; display: flex; align-items: center; justify-content: center; }' +
-    '.label-qr { width: 32mm; height: 32mm; display: block; }' +
-    '.label-qr-vazio { width: 32mm; height: 32mm; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 6.5pt; color: #999; border: 1px dashed #ccc; }' +
+    '.label-qr-wrap { flex: none; width: 30mm; display: flex; align-items: center; justify-content: center; }' +
+    '.label-qr { width: 30mm; height: 30mm; display: block; }' +
+    '.label-qr-vazio { width: 30mm; height: 30mm; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 6.5pt; color: #999; border: 1px dashed #ccc; }' +
     '.label-content { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100%; }' +
-    '.label-top-row { display: flex; justify-content: flex-end; margin-bottom: 1mm; }' +
-    '.label-photo { width: 12mm; height: 12mm; object-fit: cover; border-radius: 1.5mm; border: 0.3mm solid #ddd; }' +
-    '.label-text { flex: 1; min-height: 0; }' +
+    '.label-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 2mm; }' +
+    '.label-id-name { min-width: 0; flex: 1; }' +
+    '.label-photo { width: 24mm; height: 24mm; object-fit: cover; border-radius: 1.5mm; border: 0.3mm solid #ddd; flex: none; }' +
     '.label-id { font-size: 17pt; font-weight: 800; color: #1a1a1a; line-height: 1.1; }' +
     '.label-name { font-size: 9.5pt; font-weight: 700; color: #1a1a1a; margin-top: 0.8mm; line-height: 1.15; }' +
+    '.label-meta-block { flex: 1; min-height: 0; margin-top: 1mm; }' +
     '.label-meta { font-size: 7pt; color: #555; margin-top: 0.4mm; }' +
     '.label-bottom-row { display: flex; justify-content: flex-end; }' +
     '.label-logo { height: 5mm; display: block; }' +
