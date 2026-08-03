@@ -1709,7 +1709,7 @@ function imprimirViaIframeRecebimento(lista, qrDataUrls) {
       '<div class="label-r-left">' +
       '<div class="label-r-marca">ESTOQUE<br>PERFINORTE</div>' +
       (qrDataUrls[i] ? '<img class="label-r-qr" src="' + qrDataUrls[i] + '">' : '<div class="label-r-qr-vazio">QR indisponível</div>') +
-      '<div class="label-r-aviso">NÃO COLAR<br>NA PEÇA</div>' +
+      '<div class="label-r-aviso">NÃO COLAR<br>ETIQUETA</div>' +
       '</div>' +
       '<div class="label-r-info">' +
       '<div class="label-id-box">' + esc(p.ID_Peca) + '</div>' +
@@ -1770,8 +1770,25 @@ function imprimirViaIframeRecebimento(lista, qrDataUrls) {
       toast('Erro ao abrir impressão: ' + e.message);
     }
   }
-  iframe.onload = function () { setTimeout(dispararImpressao, 150); };
-  setTimeout(dispararImpressao, 700);
+  function aguardarImagensEImprimir() {
+    const imgs = Array.from(iframe.contentWindow.document.images || []);
+    if (imgs.length === 0) { dispararImpressao(); return; }
+    let pendentes = imgs.length;
+    function marcarPronta() {
+      pendentes--;
+      if (pendentes <= 0) dispararImpressao();
+    }
+    imgs.forEach(img => {
+      if (img.complete) marcarPronta();
+      else {
+        img.addEventListener('load', marcarPronta);
+        img.addEventListener('error', marcarPronta);
+      }
+    });
+    setTimeout(dispararImpressao, 8000);
+  }
+  iframe.onload = aguardarImagensEImprimir;
+  setTimeout(aguardarImagensEImprimir, 300);
  } catch (e) {
   toast('Erro ao montar etiquetas: ' + e.message);
  }
@@ -1818,7 +1835,7 @@ function imprimirViaIframe(lista, qrDataUrls) {
     '.label-top { display: flex; gap: 2mm; flex: 1; min-height: 0; }' +
     '.label-qr-wrap, .label-photo-wrap { flex: none; width: 30mm; display: flex; align-items: flex-start; justify-content: center; }' +
     '.label-qr { width: 30mm; height: 30mm; display: block; }' +
-    '.label-photo { width: 30mm; height: 30mm; display: block; object-fit: contain; border-radius: 2.5mm; border: 0.3mm solid #ddd; padding: 0.8mm; }' +
+    '.label-photo { width: 30mm; height: 30mm; display: block; object-fit: contain; border-radius: 2.5mm; border: 0.3mm solid #ddd; padding: 0.8mm; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }' +
     '.label-qr-vazio, .label-photo-vazio { width: 30mm; height: 30mm; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 6.5pt; color: #999; border: 1px dashed #ccc; border-radius: 2.5mm; box-sizing: border-box; }' +
     '.label-specs { flex: 1; min-width: 0; display: flex; flex-direction: column; }' +
     '.label-id-box { display: inline-block; align-self: flex-start; border: 0.5mm solid #1a1a1a; border-radius: 1mm; padding: 0.8mm 2mm; font-size: 14pt; font-weight: 800; color: #1a1a1a; line-height: 1.15; }' +
@@ -1859,8 +1876,30 @@ function imprimirViaIframe(lista, qrDataUrls) {
       toast('Erro ao abrir impressão: ' + e.message);
     }
   }
-  iframe.onload = function () { setTimeout(dispararImpressao, 150); };
-  setTimeout(dispararImpressao, 700);
+  // Espera TODAS as fotos (vêm do Google Drive) terminarem de carregar antes
+  // de mandar imprimir — antes disparava num tempo fixo, e em listas grandes
+  // algumas fotos ainda não tinham chegado, saindo em branco na etiqueta.
+  function aguardarImagensEImprimir() {
+    const imgs = Array.from(iframe.contentWindow.document.images || []);
+    if (imgs.length === 0) { dispararImpressao(); return; }
+    let pendentes = imgs.length;
+    function marcarPronta() {
+      pendentes--;
+      if (pendentes <= 0) dispararImpressao();
+    }
+    imgs.forEach(img => {
+      if (img.complete) marcarPronta();
+      else {
+        img.addEventListener('load', marcarPronta);
+        img.addEventListener('error', marcarPronta); // não trava pra sempre se 1 foto falhar
+      }
+    });
+    // watchdog: se alguma imagem nunca disparar load/error por bug de rede,
+    // imprime assim mesmo depois de um tempo generoso, em vez de travar.
+    setTimeout(dispararImpressao, 8000);
+  }
+  iframe.onload = aguardarImagensEImprimir;
+  setTimeout(aguardarImagensEImprimir, 300);
  } catch (e) {
   toast('Erro ao montar etiquetas: ' + e.message);
  }
