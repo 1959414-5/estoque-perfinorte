@@ -1735,13 +1735,13 @@ function imprimirViaIframeRecebimento(lista, qrDataUrls) {
       '</div>' +
       '<div class="label-r-info">' +
       '<div class="label-id-box">' + esc(p.ID_Peca) + '</div>' +
-      '<div class="label-r-qtd">Qtd: ' + esc(p.Quantidade) + '</div>' +
+      '<div class="label-r-qtd"><span class="label-r-qtd-rotulo">Qtd</span>: <span class="label-r-qtd-num">' + esc(p.Quantidade) + '</span></div>' +
       '<div class="label-r-desc">' + esc(p.Nome_Peca) + '</div>' +
+      (p.Pedido_Perfinorte ? '<div class="label-r-pedido"><span class="label-r-pedido-rotulo">PEDIDO:</span><div class="label-r-pedido-num">' + esc(p.Pedido_Perfinorte) + '</div></div>' : '') +
       '</div>' +
       '<div class="label-r-right">' +
       '<div class="label-r-item-label">ITEM:</div>' +
       '<div class="label-r-item-box"></div>' +
-      (p.Pedido_Perfinorte ? '<div class="label-r-pedido">PEDIDO: ' + esc(p.Pedido_Perfinorte) + '</div>' : '') +
       '<img class="label-logo label-r-logo" src="' + LOGO_PERFINORTE_B64 + '">' +
       '</div>' +
       '</div>' +
@@ -1758,15 +1758,19 @@ function imprimirViaIframeRecebimento(lista, qrDataUrls) {
     '.label-r-marca { text-align: center; align-self: center; font-size: 7pt; font-weight: 800; color: #1a1a1a; letter-spacing: 0.03em; line-height: 1.2; }' +
     '.label-r-qr { width: 24mm; height: 24mm; display: block; }' +
     '.label-r-qr-vazio { width: 24mm; height: 24mm; border: 1px dashed #999; display: flex; align-items: center; justify-content: center; font-size: 6.5pt; color: #999; text-align: center; }' +
-    '.label-r-aviso { background: #f2f2f2; border: 0.3mm solid #999; color: #000; font-size: 7.5pt; font-weight: 800; text-decoration: underline; text-transform: uppercase; text-align: center; padding: 1mm 2mm; border-radius: 1mm; line-height: 1.25; width: 100%; }' +
+    '.label-r-aviso { margin-top: auto; background: #f2f2f2; border: 0.3mm solid #999; color: #000; font-size: 7.5pt; font-weight: 800; text-decoration: underline; text-transform: uppercase; text-align: center; padding: 1mm 2mm; border-radius: 1mm; line-height: 1.25; width: 100%; }' +
     '.label-r-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }' +
     '.label-id-box { display: inline-block; align-self: flex-start; border: 0.5mm solid #1a1a1a; border-radius: 1mm; padding: 0.8mm 2mm; font-size: 14pt; font-weight: 800; color: #1a1a1a; line-height: 1.15; }' +
-    '.label-r-qtd { font-size: 16pt; font-weight: 800; color: #000; text-decoration: underline; margin-top: 1.5mm; }' +
+    '.label-r-qtd { font-size: 16pt; font-weight: 800; color: #000; margin-top: 1.5mm; }' +
+    '.label-r-qtd-rotulo { text-decoration: underline; }' +
+    '.label-r-qtd-num { text-decoration: none; }' +
     '.label-r-desc { font-size: 9.5pt; font-weight: 600; color: #1a1a1a; margin-top: 1.5mm; line-height: 1.25; }' +
     '.label-r-right { flex: none; width: 20mm; display: flex; flex-direction: column; align-items: center; text-align: center; }' +
     '.label-r-item-label { font-size: 11pt; font-weight: 800; color: #1a1a1a; }' +
     '.label-r-item-box { width: 17mm; height: 17mm; border: 0.5mm solid #1a1a1a; border-radius: 1mm; background: #fff; margin-top: 1.5mm; }' +
-    '.label-r-pedido { font-size: 9pt; font-weight: 800; color: #1a1a1a; margin-top: 2mm; text-align: right; }' +
+    '.label-r-pedido { margin-top: auto; }' +
+    '.label-r-pedido-rotulo { display: block; font-size: 8.5pt; font-weight: 800; color: #1a1a1a; text-decoration: underline; }' +
+    '.label-r-pedido-num { font-size: 16pt; font-weight: 800; color: #000; margin-top: 0.5mm; }' +
     '.label-r-logo { margin-top: auto; }' +
     '.label-logo { height: 4.5mm; display: block; }' +
     '</style></head><body>' + labelsHtml + '</body></html>';
