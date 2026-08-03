@@ -957,6 +957,24 @@ function fecharDetalhePedido() {
 // que identifica esse item específico (não a peça em geral). Pensada pra
 // imprimir e mandar junto com a ordem de produção da Sênior — quando a peça
 // chega pronta no estoque, é só escanear que já vem tudo preenchido.
+function salvarPedidoPerfinorte() {
+  if (!exigirModoAdmin()) return;
+  const pd = PEDIDOS_CACHE.find(x => x.pedidoId === PEDIDO_DETALHE_ATUAL);
+  if (!pd) return;
+  const valor = document.getElementById('inp-pedido-perfinorte').value.trim();
+
+  api('salvarPedidoPerfinorte', {
+    idsSolicitacoes: pd.itens.map(it => it.ID_Solicitacao),
+    numeroPedido: valor,
+    usuario: 'Bárbara'
+  })
+    .then(function () {
+      toast('Número do pedido salvo');
+      pd.itens.forEach(it => { it.Pedido_Perfinorte = valor; });
+    })
+    .catch(function (err) { toast('Erro: ' + err.message); });
+}
+
 function imprimirEtiquetasPedidoRecebimento() {
   if (!exigirModoAdmin()) return;
   const pd = PEDIDOS_CACHE.find(x => x.pedidoId === PEDIDO_DETALHE_ATUAL);
@@ -968,6 +986,7 @@ function imprimirEtiquetasPedidoRecebimento() {
       ID_Peca: item.ID_Peca,
       Nome_Peca: item.Nome_Peca,
       Quantidade: item.Quantidade,
+      Pedido_Perfinorte: item.Pedido_Perfinorte || '',
       __qrTexto: 'SOLICITACAO:' + item.ID_Solicitacao
     });
   });
@@ -987,6 +1006,9 @@ function renderDetalhePedidoConteudo() {
   document.getElementById('pedido-admin-actions').style.display = MODO_ADMIN ? 'block' : 'none';
   document.getElementById('btn-etiquetas-recebimento').style.display =
     (MODO_ADMIN && statusResumoPedido(pd) === 'Em produção') ? 'block' : 'none';
+
+  const pedidoPerfinorte = pd.itens.find(it => it.Pedido_Perfinorte)?.Pedido_Perfinorte || '';
+  document.getElementById('inp-pedido-perfinorte').value = pedidoPerfinorte;
 
   const confRaw = pd.itens.find(it => it.Confirmacao_URL)?.Confirmacao_URL;
   const confUrls = confRaw ? String(confRaw).split('\n').filter(Boolean) : [];
@@ -1719,6 +1741,7 @@ function imprimirViaIframeRecebimento(lista, qrDataUrls) {
       '<div class="label-r-right">' +
       '<div class="label-r-item-label">ITEM:</div>' +
       '<div class="label-r-item-box"></div>' +
+      (p.Pedido_Perfinorte ? '<div class="label-r-pedido">PEDIDO: ' + esc(p.Pedido_Perfinorte) + '</div>' : '') +
       '<img class="label-logo label-r-logo" src="' + LOGO_PERFINORTE_B64 + '">' +
       '</div>' +
       '</div>' +
@@ -1743,6 +1766,7 @@ function imprimirViaIframeRecebimento(lista, qrDataUrls) {
     '.label-r-right { flex: none; width: 20mm; display: flex; flex-direction: column; align-items: center; text-align: center; }' +
     '.label-r-item-label { font-size: 11pt; font-weight: 800; color: #1a1a1a; }' +
     '.label-r-item-box { width: 17mm; height: 17mm; border: 0.5mm solid #1a1a1a; border-radius: 1mm; background: #fff; margin-top: 1.5mm; }' +
+    '.label-r-pedido { font-size: 9pt; font-weight: 800; color: #1a1a1a; margin-top: 2mm; text-align: right; }' +
     '.label-r-logo { margin-top: auto; }' +
     '.label-logo { height: 4.5mm; display: block; }' +
     '</style></head><body>' + labelsHtml + '</body></html>';
