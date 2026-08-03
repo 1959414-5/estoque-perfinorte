@@ -1709,7 +1709,7 @@ function imprimirViaIframeRecebimento(lista, qrDataUrls) {
       '<div class="label-r-left">' +
       '<div class="label-r-marca">ESTOQUE<br>PERFINORTE</div>' +
       (qrDataUrls[i] ? '<img class="label-r-qr" src="' + qrDataUrls[i] + '">' : '<div class="label-r-qr-vazio">QR indisponível</div>') +
-      '<div class="label-r-aviso">NÃO COLAR<br>ETIQUETA</div>' +
+      '<div class="label-r-aviso">NÃO COLAR<br>NA PEÇA</div>' +
       '</div>' +
       '<div class="label-r-info">' +
       '<div class="label-id-box">' + esc(p.ID_Peca) + '</div>' +
