@@ -142,6 +142,12 @@
       <div class="ticket-sub" id="pedido-detalhe-sub" style="margin-bottom:14px;"></div>
 
       <div id="pedido-admin-actions" style="display:none;">
+        <label style="font-size:13px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:6px;">Nº do pedido feito na Sênior</label>
+        <div style="display:flex; gap:8px; margin-bottom:16px;">
+          <input type="text" id="inp-pedido-perfinorte" placeholder="Ex: 12345" style="flex:1; padding:12px; border:1.5px solid var(--line); border-radius:10px;">
+          <button type="button" class="btn-secondary" style="width:auto; margin:0; padding:0 18px;" onclick="salvarPedidoPerfinorte()">Salvar</button>
+        </div>
+
         <button type="button" id="btn-etiquetas-recebimento" class="btn-secondary" style="margin:0 0 14px; display:none;" onclick="imprimirEtiquetasPedidoRecebimento()">🖨️ Imprimir etiquetas de recebimento (com quantidade)</button>
 
         <label style="font-size:13px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:6px;">Anexar print do pedido (Sênior) — marca "Em produção"</label>
