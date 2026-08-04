@@ -18,6 +18,20 @@ async function api(acao, params) {
   return j.dados;
 }
 
+async function apiComRetry(acao, params, tentativas) {
+  tentativas = tentativas || 3;
+  let ultimoErro;
+  for (let i = 0; i < tentativas; i++) {
+    try {
+      return await api(acao, params);
+    } catch (e) {
+      ultimoErro = e;
+      if (i < tentativas - 1) await new Promise(r => setTimeout(r, 700 * (i + 1)));
+    }
+  }
+  throw ultimoErro;
+}
+
 function esc(str) {
   if (str === undefined || str === null) return '';
   return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -53,7 +67,8 @@ document.addEventListener('DOMContentLoaded', function () {
 function verificarPinRelatorio() {
   const pin = document.getElementById('inp-pin').value;
   if (!pin) return;
-  api('verificarPin', { pin: pin })
+  toast('Verificando...');
+  apiComRetry('verificarPin', { pin: pin })
     .then(function (ok) {
       if (ok) {
         localStorage.setItem('modoAdmin', 'true');
@@ -62,7 +77,7 @@ function verificarPinRelatorio() {
         document.getElementById('pin-erro').classList.remove('hidden');
       }
     })
-    .catch(function (err) { toast('Erro: ' + err.message); });
+    .catch(function (err) { toast('Não consegui verificar o PIN (tentei 3x): ' + err.message); });
 }
 
 function desbloquearRelatorio() {
@@ -131,7 +146,7 @@ function carregarRelatorio(inicio, fim, label) {
   document.getElementById('rel-periodo-label').textContent = label;
   document.getElementById('tabela-movimentos-body').innerHTML = '<tr><td colspan="7">Carregando...</td></tr>';
 
-  api('getMovimentosEstoque', { dataInicio: inicio, dataFim: fim })
+  apiComRetry('getMovimentosEstoque', { dataInicio: inicio, dataFim: fim })
     .then(function (lista) {
       MOVIMENTOS = lista || [];
       renderKPIs();
