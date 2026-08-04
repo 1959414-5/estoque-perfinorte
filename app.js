@@ -103,6 +103,11 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('inp-localizacao-camera').addEventListener('change', e => handleUploadPedido(e, 'localizacao'));
   document.getElementById('inp-localizacao-arquivo').addEventListener('change', e => handleUploadPedido(e, 'localizacao'));
 
+  document.getElementById('lista-painel').addEventListener('click', function (e) {
+    const card = e.target.closest('.ticket');
+    if (card && card.dataset.pedidoId) abrirDetalhePedido(card.dataset.pedidoId);
+  });
+
   const cropWrap = document.getElementById('crop-canvas-wrap');
   cropWrap.addEventListener('mousedown', cropIniciar);
   cropWrap.addEventListener('mousemove', cropMover);
@@ -949,21 +954,22 @@ function renderPainel() {
     return new Date(b.dataHora) - new Date(a.dataHora);
   });
 
-  wrap.innerHTML = '';
   if (pedidos.length === 0) {
     wrap.innerHTML = '<div class="empty-state"><div class="big">Nada por aqui</div>Sem pedidos nesse filtro.</div>';
     renderTabelaPainel(pedidos);
     return;
   }
-  pedidos.forEach(pd => {
+
+  // Monta tudo como uma string só e escreve de uma vez — bem mais rápido do
+  // que criar e inserir elemento por elemento, principalmente com bastante
+  // pedido na lista. O clique é tratado por delegação (um listener só, fixo,
+  // registrado na inicialização), então não precisa religar nada aqui.
+  wrap.innerHTML = pedidos.map(pd => {
     const urgente = pedidoTemUrgente(pd);
     const statusGeral = statusResumoPedido(pd);
     const nomes = pd.itens.slice(0, 2).map(it => esc(it.Nome_Peca)).join(', ');
     const resto = pd.itens.length > 2 ? ' + ' + (pd.itens.length - 2) : '';
-    const div = document.createElement('div');
-    div.className = 'ticket' + (urgente ? ' is-urgent' : '');
-    div.addEventListener('click', () => abrirDetalhePedido(pd.pedidoId));
-    div.innerHTML =
+    return '<div class="ticket' + (urgente ? ' is-urgent' : '') + '" data-pedido-id="' + esc(pd.pedidoId) + '">' +
       '<div class="ticket-head">' +
       '<div style="min-width:0;"><div class="ticket-title">' + esc(pd.solicitante) + '</div>' +
       '<div class="ticket-sub">' + pd.itens.length + ' peça' + (pd.itens.length > 1 ? 's' : '') + ' · ' + tempoRelativo(pd.dataHora) + '</div></div>' +
@@ -972,9 +978,9 @@ function renderPainel() {
       '<span class="status-badge" data-s="' + esc(statusGeral) + '">' + esc(statusGeral) + '</span>' +
       '</div></div>' +
       '<div class="ticket-perf"></div>' +
-      '<div class="ticket-body"><span>' + nomes + resto + '</span></div>';
-    wrap.appendChild(div);
-  });
+      '<div class="ticket-body"><span>' + nomes + resto + '</span></div>' +
+      '</div>';
+  }).join('');
 
   renderTabelaPainel(pedidos);
 }
@@ -1072,30 +1078,46 @@ function renderDetalhePedidoConteudo() {
   const pedidoPerfinorte = pd.itens.find(it => it.Pedido_Perfinorte)?.Pedido_Perfinorte || '';
   document.getElementById('inp-pedido-perfinorte').value = pedidoPerfinorte;
 
-  renderAnexosPedido(pd, 'confirmacao', 'pedido-confirmacao-anexada', 'Print');
-  renderAnexosPedido(pd, 'localizacao', 'pedido-localizacao-anexada', 'Localização');
+  renderAnexosPedido(pd, 'confirmacao', 'pedido-confirmacao-anexada', 'btn-ver-confirmacao', 'Print do pedido (Em produção)', 'bloco-confirmacao', 'Print');
+  renderAnexosPedido(pd, 'localizacao', 'pedido-localizacao-anexada', 'btn-ver-localizacao', 'Localização no estoque (Pronto)', 'bloco-localizacao', 'Localização');
 
   document.getElementById('pedido-itens-lista').innerHTML = pd.itens.map(renderItemPedidoDetalhe).join('');
 }
 
-function renderAnexosPedido(pd, tipo, idContainer, rotulo) {
+function renderAnexosPedido(pd, tipo, idContainer, idBotao, textoBotao, idBlocoUpload, rotulo) {
   const cfg = TIPOS_ANEXO_PEDIDO[tipo];
   const raw = pd.itens.find(it => it[cfg.campoUrl])?.[cfg.campoUrl];
   const urls = raw ? String(raw).split('\n').filter(Boolean) : [];
+  const temAnexo = urls.length > 0;
+
+  // Botão de "ver" — pra todo mundo (solicitante inclusive), só aparece se
+  // tiver algo pra ver. O conteúdo começa sempre recolhido a cada atualização,
+  // pra não acumular estado estranho depois de anexar/remover/mudar status.
+  const btn = document.getElementById(idBotao);
+  btn.classList.toggle('hidden', !temAnexo);
+  btn.textContent = '📎 ' + textoBotao + ' (' + urls.length + ')';
+
   const wrap = document.getElementById(idContainer);
-  if (urls.length) {
-    wrap.style.display = 'block';
-    wrap.innerHTML = '<label style="font-size:13px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:6px;">' + esc(rotulo) + (urls.length > 1 ? 's anexados' : ' anexado') + '</label>' +
-      '<div class="photos-preview-row">' + urls.map(url =>
+  wrap.classList.add('hidden');
+  wrap.innerHTML = temAnexo
+    ? '<div class="photos-preview-row">' + urls.map(url =>
         '<div class="photo-preview-item" style="width:84px; height:84px;">' +
         '<img src="' + url + '" style="cursor:zoom-in;" onclick="abrirImagemFullscreen(\'' + url.replace(/'/g, "\\'") + '\')">' +
         (MODO_ADMIN ? '<button type="button" class="photo-preview-remove" onclick="event.stopPropagation(); removerAnexoPedido(\'' + url.replace(/'/g, "\\'") + '\', \'' + tipo + '\')">×</button>' : '') +
         '</div>'
-      ).join('') + '</div>';
-  } else {
-    wrap.style.display = 'none';
-    wrap.innerHTML = '';
-  }
+      ).join('') + '</div>'
+    : '';
+
+  // A área de UPLOAD (só no Modo Bárbara) só faz sentido mostrar se ainda não
+  // tem nada anexado desse tipo — depois que já tem, some sozinha; se remover
+  // tudo, ela volta a aparecer automaticamente.
+  const blocoUpload = document.getElementById(idBlocoUpload);
+  if (blocoUpload) blocoUpload.classList.toggle('hidden', temAnexo);
+}
+
+function alternarAnexosPedido(tipo) {
+  const idContainer = tipo === 'confirmacao' ? 'pedido-confirmacao-anexada' : 'pedido-localizacao-anexada';
+  document.getElementById(idContainer).classList.toggle('hidden');
 }
 
 function renderItemPedidoDetalhe(it) {
