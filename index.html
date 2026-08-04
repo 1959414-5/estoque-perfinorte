@@ -113,6 +113,10 @@
         <button type="button" class="btn-secondary btn-solto" style="margin:0;" onclick="abrirScanQR()">📷 Escanear QR</button>
         <button type="button" class="btn-secondary btn-solto" id="btn-imprimir-lista" style="margin:0;" onclick="imprimirEtiquetasCatalogo()">🖨️ Imprimir etiquetas desta lista</button>
       </div>
+
+      <button type="button" id="btn-alertas-estoque" class="hidden" onclick="alternarPainelAlertas()">⚠️ <span id="texto-alertas-estoque"></span></button>
+      <div id="painel-alertas-estoque" class="hidden"></div>
+
       <div id="lista-catalogo"></div>
       <button class="fab" type="button" onclick="abrirModalPecaNova('catalogo')">+</button>
     </section>
