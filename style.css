@@ -11,7 +11,7 @@
 
     --status-solicitado: #DC2626;
     --status-producao: #C77D00;
-    --status-pronto: #2563EB;
+    --status-pronto: #38761d;
     --status-entregue: #94A3B8;
 
     --font-display: 'Barlow Condensed', sans-serif;
@@ -450,6 +450,7 @@
   }
   .status-badge[data-s="Solicitado"] { background: var(--status-solicitado); }
   .status-badge[data-s="Em produção"] { background: var(--status-producao); }
+  .status-badge[data-s="Pronto"] { background: var(--status-pronto); }
   .status-badge[data-s="Entregue"] { background: var(--status-entregue); }
 
   .ticket-perf {
