@@ -235,23 +235,86 @@ function thumbHtml(imagemUrl, tamanhoClasse) {
 }
 
 let LIGHTBOX_ROTACAO = 0;
+let LIGHTBOX_ZOOM = 1;
+let LIGHTBOX_GALERIA = [];
+let LIGHTBOX_INDICE = 0;
 
+// Abre uma imagem avulsa (mantém compatível com todo lugar que já chamava
+// isso — foto de peça, imagem do catálogo etc.) — por trás, é só uma
+// "galeria" de 1 imagem só, então as setas de navegar ficam escondidas.
 function abrirImagemFullscreen(url) {
-  LIGHTBOX_ROTACAO = 0;
-  const img = document.getElementById('lightbox-img');
-  img.src = url;
-  img.style.transform = 'rotate(0deg)';
+  abrirGaleriaFullscreen([url], 0);
+}
+
+// Abre a galeria de anexos de um pedido (Ordem de Produção ou Carregamento)
+// direto em tela cheia, já na primeira imagem, com setas se tiver mais de uma.
+function abrirGaleriaAnexosPedido(tipo) {
+  const cfg = TIPOS_ANEXO_PEDIDO[tipo];
+  const pd = PEDIDOS_CACHE.find(x => x.pedidoId === PEDIDO_DETALHE_ATUAL);
+  if (!pd) return;
+  const raw = pd.itens.find(it => it[cfg.campoUrl])?.[cfg.campoUrl];
+  const urls = raw ? String(raw).split('\n').filter(Boolean) : [];
+  if (!urls.length) return;
+  abrirGaleriaFullscreen(urls, 0);
+}
+
+function abrirGaleriaFullscreen(urls, indiceInicial) {
+  LIGHTBOX_GALERIA = urls;
+  LIGHTBOX_INDICE = indiceInicial || 0;
+  permitirZoomNativoPagina(true);
+  mostrarImagemGaleriaAtual();
   document.getElementById('modal-lightbox').classList.remove('hidden');
+}
+
+function mostrarImagemGaleriaAtual() {
+  LIGHTBOX_ROTACAO = 0;
+  LIGHTBOX_ZOOM = 1;
+  const img = document.getElementById('lightbox-img');
+  img.src = LIGHTBOX_GALERIA[LIGHTBOX_INDICE];
+  img.style.transform = 'rotate(0deg) scale(1)';
+
+  const temVarias = LIGHTBOX_GALERIA.length > 1;
+  document.getElementById('lightbox-nav-controls').classList.toggle('hidden', !temVarias);
+  const contador = document.getElementById('lightbox-contador');
+  contador.classList.toggle('hidden', !temVarias);
+  if (temVarias) contador.textContent = (LIGHTBOX_INDICE + 1) + ' / ' + LIGHTBOX_GALERIA.length;
+}
+
+function navegarGaleria(direcao) {
+  if (LIGHTBOX_GALERIA.length < 2) return;
+  LIGHTBOX_INDICE = (LIGHTBOX_INDICE + direcao + LIGHTBOX_GALERIA.length) % LIGHTBOX_GALERIA.length;
+  mostrarImagemGaleriaAtual();
+}
+
+function aplicarTransformLightbox() {
+  document.getElementById('lightbox-img').style.transform = 'rotate(' + LIGHTBOX_ROTACAO + 'deg) scale(' + LIGHTBOX_ZOOM + ')';
 }
 
 function rotacionarImagemFullscreen(graus) {
   LIGHTBOX_ROTACAO = (LIGHTBOX_ROTACAO + graus + 360) % 360;
-  document.getElementById('lightbox-img').style.transform = 'rotate(' + LIGHTBOX_ROTACAO + 'deg)';
+  aplicarTransformLightbox();
+}
+
+function zoomLightbox(delta) {
+  LIGHTBOX_ZOOM = Math.min(3, Math.max(1, Math.round((LIGHTBOX_ZOOM + delta) * 10) / 10));
+  aplicarTransformLightbox();
 }
 
 function fecharImagemFullscreen() {
   document.getElementById('modal-lightbox').classList.add('hidden');
   document.getElementById('lightbox-img').src = '';
+  permitirZoomNativoPagina(false);
+}
+
+// O app trava o zoom por beliscão (pinch) no resto da tela, pra não bagunçar
+// os toques nos botões — mas dentro do visualizador de foto isso atrapalha,
+// então libera só enquanto ele estiver aberto e trava de novo ao fechar.
+function permitirZoomNativoPagina(permitir) {
+  const meta = document.querySelector('meta[name="viewport"]');
+  if (!meta) return;
+  meta.setAttribute('content', permitir
+    ? 'width=device-width, initial-scale=1'
+    : 'width=device-width, initial-scale=1, maximum-scale=1');
 }
 
 // ---------------------------------------------------------
@@ -1078,46 +1141,51 @@ function renderDetalhePedidoConteudo() {
   const pedidoPerfinorte = pd.itens.find(it => it.Pedido_Perfinorte)?.Pedido_Perfinorte || '';
   document.getElementById('inp-pedido-perfinorte').value = pedidoPerfinorte;
 
-  renderAnexosPedido(pd, 'confirmacao', 'pedido-confirmacao-anexada', 'btn-ver-confirmacao', 'Print do pedido (Em produção)', 'bloco-confirmacao', 'Print');
-  renderAnexosPedido(pd, 'localizacao', 'pedido-localizacao-anexada', 'btn-ver-localizacao', 'Localização no estoque (Pronto)', 'bloco-localizacao', 'Localização');
+  renderAnexosPedido(pd, 'confirmacao', 'pedido-confirmacao-anexada', 'btn-ver-confirmacao', 'Ver Ordem de Produção', 'bloco-confirmacao');
+  renderAnexosPedido(pd, 'localizacao', 'pedido-localizacao-anexada', 'btn-ver-localizacao', 'Ver Ordem de Carregamento', 'bloco-localizacao');
 
   document.getElementById('pedido-itens-lista').innerHTML = pd.itens.map(renderItemPedidoDetalhe).join('');
 }
 
-function renderAnexosPedido(pd, tipo, idContainer, idBotao, textoBotao, idBlocoUpload, rotulo) {
+function renderAnexosPedido(pd, tipo, idContainer, idBotao, textoBotao, idBlocoUpload) {
   const cfg = TIPOS_ANEXO_PEDIDO[tipo];
   const raw = pd.itens.find(it => it[cfg.campoUrl])?.[cfg.campoUrl];
   const urls = raw ? String(raw).split('\n').filter(Boolean) : [];
   const temAnexo = urls.length > 0;
 
-  // Botão de "ver" — pra todo mundo (solicitante inclusive), só aparece se
-  // tiver algo pra ver. O conteúdo começa sempre recolhido a cada atualização,
-  // pra não acumular estado estranho depois de anexar/remover/mudar status.
+  // Botão de "ver" — pra todo mundo (solicitante inclusive), abre a galeria
+  // em tela cheia direto. Só aparece se tiver algo pra ver.
   const btn = document.getElementById(idBotao);
   btn.classList.toggle('hidden', !temAnexo);
-  btn.textContent = '📎 ' + textoBotao + ' (' + urls.length + ')';
+  btn.textContent = textoBotao;
 
+  // A área de baixo (miniaturas com "x" pra remover) é só de gerenciamento,
+  // então só faz sentido pro Modo Bárbara — já fica dentro do bloco admin.
   const wrap = document.getElementById(idContainer);
-  wrap.classList.add('hidden');
+  wrap.classList.toggle('hidden', !temAnexo);
   wrap.innerHTML = temAnexo
-    ? '<div class="photos-preview-row">' + urls.map(url =>
+    ? '<label style="font-size:12.5px; color:var(--ink-soft); display:block; margin-bottom:6px;">Anexado(s) — toque no × pra remover</label>' +
+      '<div class="photos-preview-row">' + urls.map((url, idx) =>
         '<div class="photo-preview-item" style="width:84px; height:84px;">' +
-        '<img src="' + url + '" style="cursor:zoom-in;" onclick="abrirImagemFullscreen(\'' + url.replace(/'/g, "\\'") + '\')">' +
-        (MODO_ADMIN ? '<button type="button" class="photo-preview-remove" onclick="event.stopPropagation(); removerAnexoPedido(\'' + url.replace(/'/g, "\\'") + '\', \'' + tipo + '\')">×</button>' : '') +
+        '<img src="' + url + '" style="cursor:zoom-in;" data-idx="' + idx + '">' +
+        '<button type="button" class="photo-preview-remove" onclick="event.stopPropagation(); removerAnexoPedido(\'' + url.replace(/'/g, "\\'") + '\', \'' + tipo + '\')">×</button>' +
         '</div>'
       ).join('') + '</div>'
     : '';
+  // Conecta o clique de cada miniatura via JS (não pelo onclick inline) —
+  // assim não precisa colocar a lista inteira de URLs dentro do HTML, que é
+  // frágil se alguma URL tiver caractere especial.
+  if (temAnexo) {
+    wrap.querySelectorAll('.photo-preview-item img').forEach(imgEl => {
+      imgEl.addEventListener('click', () => abrirGaleriaFullscreen(urls, Number(imgEl.dataset.idx)));
+    });
+  }
 
   // A área de UPLOAD (só no Modo Bárbara) só faz sentido mostrar se ainda não
   // tem nada anexado desse tipo — depois que já tem, some sozinha; se remover
   // tudo, ela volta a aparecer automaticamente.
   const blocoUpload = document.getElementById(idBlocoUpload);
   if (blocoUpload) blocoUpload.classList.toggle('hidden', temAnexo);
-}
-
-function alternarAnexosPedido(tipo) {
-  const idContainer = tipo === 'confirmacao' ? 'pedido-confirmacao-anexada' : 'pedido-localizacao-anexada';
-  document.getElementById(idContainer).classList.toggle('hidden');
 }
 
 function renderItemPedidoDetalhe(it) {
