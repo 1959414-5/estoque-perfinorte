@@ -1238,6 +1238,7 @@ function imprimirEtiquetasPedidoRecebimento() {
       Nome_Peca: item.Nome_Peca,
       Quantidade: item.Quantidade,
       Pedido_Perfinorte: item.Pedido_Perfinorte || '',
+      Item_Perfinorte: item.Item_Perfinorte || '',
       __qrTexto: 'SOLICITACAO:' + item.ID_Solicitacao
     });
   });
@@ -1340,6 +1341,10 @@ function renderItemPedidoDetalhe(it) {
     html += '<input type="number" min="1" inputmode="numeric" value="' + it.Quantidade + '" id="qtd-item-' + it.ID_Solicitacao + '" style="flex:1; padding:8px; border:1.5px solid var(--line); border-radius:8px;" onblur="limparZerosQuantidade(this, 1)">';
     html += '<button type="button" class="btn-secondary" style="width:auto; margin:0; padding:8px 12px;" onclick="salvarQtdItemPedido(\'' + it.ID_Solicitacao + '\')">Salvar qtd</button>';
     html += '</div>';
+    html += '<div style="display:flex; gap:6px; margin:6px 0;">';
+    html += '<input type="text" placeholder="Nº do item na Sênior" value="' + esc(it.Item_Perfinorte || '') + '" id="item-perfinorte-' + it.ID_Solicitacao + '" style="flex:1; padding:8px; border:1.5px solid var(--line); border-radius:8px;">';
+    html += '<button type="button" class="btn-secondary" style="width:auto; margin:0; padding:8px 12px;" onclick="salvarItemPerfinorteUI(\'' + it.ID_Solicitacao + '\')">Salvar item</button>';
+    html += '</div>';
     html += '<label class="urgent-label" style="margin-bottom:8px;">' +
       '<input type="checkbox" ' + (urgente ? 'checked' : '') + ' onchange="toggleUrgenteItemPedido(\'' + it.ID_Solicitacao + '\', this.checked)">' +
       '<span class="urgent-box">🔴 ' + (urgente ? 'Marcado como urgente' : 'Marcar como urgente') + '</span></label>';
@@ -1400,6 +1405,21 @@ function salvarQtdItemPedido(idSolicitacao) {
       if (it) it.Quantidade = novaQtd;
       renderDetalhePedidoConteudo();
       renderPainel();
+    })
+    .catch(function (err) { toast('Erro: ' + err.message); });
+}
+
+// Número do ITEM dessa peça na Sênior — sai automático na caixinha "ITEM:"
+// da etiqueta de recebimento quando ela for impressa, sem precisar
+// escrever a mão depois.
+function salvarItemPerfinorteUI(idSolicitacao) {
+  if (!exigirModoAdmin()) return;
+  const valor = document.getElementById('item-perfinorte-' + idSolicitacao).value.trim();
+  api('salvarItemPerfinorte', { idSolicitacao: idSolicitacao, numeroItem: valor, usuario: 'Bárbara' })
+    .then(function () {
+      toast('Número do item salvo');
+      const it = acharItemPorId(idSolicitacao);
+      if (it) it.Item_Perfinorte = valor;
     })
     .catch(function (err) { toast('Erro: ' + err.message); });
 }
@@ -2043,7 +2063,7 @@ function imprimirViaIframeRecebimento(lista, qrDataUrls) {
       '</div>' +
       '<div class="label-r-right">' +
       '<div class="label-r-item-label">ITEM:</div>' +
-      '<div class="label-r-item-box"></div>' +
+      '<div class="label-r-item-box">' + (p.Item_Perfinorte ? esc(p.Item_Perfinorte) : '') + '</div>' +
       '<img class="label-logo label-r-logo" src="' + LOGO_PERFINORTE_B64 + '">' +
       '</div>' +
       '</div>' +
@@ -2069,7 +2089,7 @@ function imprimirViaIframeRecebimento(lista, qrDataUrls) {
     '.label-r-desc { font-size: 9.5pt; font-weight: 600; color: #1a1a1a; margin-top: 1.5mm; line-height: 1.25; }' +
     '.label-r-right { flex: none; width: 20mm; display: flex; flex-direction: column; align-items: center; text-align: center; }' +
     '.label-r-item-label { font-size: 11pt; font-weight: 800; color: #1a1a1a; }' +
-    '.label-r-item-box { width: 17mm; height: 17mm; border: 0.5mm solid #1a1a1a; border-radius: 1mm; background: #fff; margin-top: 1.5mm; }' +
+    '.label-r-item-box { width: 17mm; height: 17mm; border: 0.5mm solid #1a1a1a; border-radius: 1mm; background: #fff; margin-top: 1.5mm; display: flex; align-items: center; justify-content: center; font-size: 14pt; font-weight: 800; color: #1a1a1a; }' +
     '.label-r-pedido { margin-top: auto; }' +
     '.label-r-pedido-rotulo { display: block; font-size: 8.5pt; font-weight: 800; color: #1a1a1a; text-decoration: underline; }' +
     '.label-r-pedido-num { font-size: 16pt; font-weight: 800; color: #000; margin-top: 0.5mm; }' +
