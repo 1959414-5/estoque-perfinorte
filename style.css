@@ -296,7 +296,7 @@
   .lightbox {
     position: fixed; inset: 0; background: rgba(10,13,18,0.94);
     display: flex; align-items: center; justify-content: center;
-    z-index: 200; padding: 24px;
+    z-index: 200; padding: 24px; overflow: auto;
   }
   .hidden { display: none !important; }
   .lightbox.hidden { display: none; }
@@ -308,6 +308,20 @@
   .lightbox-rotate-controls button {
     width: 44px; height: 44px; border-radius: 50%;
     background: rgba(255,255,255,0.14); border: none; color: #fff; font-size: 20px;
+  }
+  .lightbox-nav-controls {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 14px; pointer-events: none; z-index: 9;
+  }
+  .lightbox-nav-btn {
+    pointer-events: auto; width: 52px; height: 52px; border-radius: 50%;
+    background: rgba(255,255,255,0.14); border: none; color: #fff; font-size: 30px; line-height: 1;
+  }
+  .lightbox-contador {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.5); color: #fff; padding: 5px 14px; border-radius: 999px;
+    font-size: 13px; font-weight: 700; z-index: 10;
   }
 
   .crop-selection-box {
