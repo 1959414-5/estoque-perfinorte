@@ -142,6 +142,13 @@
       <div class="modal-title" id="pedido-detalhe-titulo"></div>
       <div class="ticket-sub" id="pedido-detalhe-sub" style="margin-bottom:14px;"></div>
 
+      <div id="pedido-anexos-botoes" style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+        <button type="button" id="btn-ver-confirmacao" class="btn-secondary btn-solto hidden" style="width:auto; margin:0;" onclick="alternarAnexosPedido('confirmacao')">📎 Print do pedido (Em produção)</button>
+        <button type="button" id="btn-ver-localizacao" class="btn-secondary btn-solto hidden" style="width:auto; margin:0;" onclick="alternarAnexosPedido('localizacao')">📎 Localização no estoque (Pronto)</button>
+      </div>
+      <div id="pedido-confirmacao-anexada" class="hidden" style="margin-bottom:16px;"></div>
+      <div id="pedido-localizacao-anexada" class="hidden" style="margin-bottom:16px;"></div>
+
       <div id="pedido-admin-actions" style="display:none;">
         <label style="font-size:13px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:6px;">Nº do pedido feito na Sênior</label>
         <div style="display:flex; gap:8px; margin-bottom:16px;">
@@ -181,9 +188,6 @@
           <button type="button" class="btn-secondary" id="btn-capturar-tela-localizacao" onclick="capturarTelaPedido('localizacao')">🖥️ Capturar tela / janela</button>
         </div>
       </div>
-
-      <div id="pedido-confirmacao-anexada" style="display:none; margin-bottom:16px;"></div>
-      <div id="pedido-localizacao-anexada" style="display:none; margin-bottom:16px;"></div>
 
       <div id="pedido-itens-lista"></div>
     </div>
