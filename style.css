@@ -255,6 +255,7 @@
   #badge-filtros-ativos { color: var(--accent); font-weight: 900; }
   .catalogo-toolbar .btn-secondary { flex: 1; min-width: 160px; }
   #btn-imprimir-lista { display: none; }
+  #btn-peca-nao-catalogo { display: none; }
   #btn-modo-admin { display: none; }
   #tabela-painel-wrap { display: none; }
 
@@ -635,6 +636,7 @@
 
     .fab { display: flex; align-items: center; justify-content: center; bottom: 28px; }
     #btn-imprimir-lista { display: block; }
+    #btn-peca-nao-catalogo { display: block; }
     #btn-modo-admin { display: block; }
 
     /* Catálogo e Painel em grade, aproveitando a largura da tela */
