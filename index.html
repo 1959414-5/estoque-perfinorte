@@ -75,6 +75,7 @@
           <div class="filter-chip selected" onclick="setFiltro('Todos', this)">Todos</div>
           <div class="filter-chip" onclick="setFiltro('Solicitado', this)">Solicitado</div>
           <div class="filter-chip" onclick="setFiltro('Em produção', this)">Em produção</div>
+          <div class="filter-chip" onclick="setFiltro('Pronto', this)">Pronto</div>
           <div class="filter-chip" onclick="setFiltro('Entregue', this)">Entregue</div>
         </div>
       </div>
@@ -150,21 +151,39 @@
 
         <button type="button" id="btn-etiquetas-recebimento" class="btn-secondary" style="margin:0 0 14px; display:none;" onclick="imprimirEtiquetasPedidoRecebimento()">🖨️ Imprimir etiquetas de recebimento (com quantidade)</button>
 
-        <label style="font-size:13px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:6px;">Anexar print do pedido (Sênior) — marca "Em produção"</label>
-        <div class="photo-buttons-row">
-          <div class="photo-input">
-            <input type="file" id="inp-confirmacao-camera" accept="image/*" capture="environment">
-            📷 Tirar foto
+        <div id="bloco-confirmacao" style="margin-bottom:20px;">
+          <label style="font-size:13px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:6px;">Anexar print do pedido (Sênior) — marca "Em produção"</label>
+          <div class="photo-buttons-row">
+            <div class="photo-input">
+              <input type="file" id="inp-confirmacao-camera" accept="image/*" capture="environment">
+              📷 Tirar foto
+            </div>
+            <div class="photo-input">
+              <input type="file" id="inp-confirmacao-arquivo" accept="image/*" multiple>
+              🖼️ Escolher arquivo(s)
+            </div>
           </div>
-          <div class="photo-input">
-            <input type="file" id="inp-confirmacao-arquivo" accept="image/*" multiple>
-            🖼️ Escolher arquivo(s)
-          </div>
+          <button type="button" class="btn-secondary" id="btn-capturar-tela-confirmacao" onclick="capturarTelaPedido('confirmacao')">🖥️ Capturar tela / janela</button>
         </div>
-        <button type="button" class="btn-secondary" id="btn-capturar-tela" onclick="capturarTelaConfirmacao()">🖥️ Capturar tela / janela</button>
+
+        <div id="bloco-localizacao">
+          <label style="font-size:13px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:6px;">Anexar localização no estoque — marca "Pronto"</label>
+          <div class="photo-buttons-row">
+            <div class="photo-input">
+              <input type="file" id="inp-localizacao-camera" accept="image/*" capture="environment">
+              📷 Tirar foto
+            </div>
+            <div class="photo-input">
+              <input type="file" id="inp-localizacao-arquivo" accept="image/*" multiple>
+              🖼️ Escolher arquivo(s)
+            </div>
+          </div>
+          <button type="button" class="btn-secondary" id="btn-capturar-tela-localizacao" onclick="capturarTelaPedido('localizacao')">🖥️ Capturar tela / janela</button>
+        </div>
       </div>
 
       <div id="pedido-confirmacao-anexada" style="display:none; margin-bottom:16px;"></div>
+      <div id="pedido-localizacao-anexada" style="display:none; margin-bottom:16px;"></div>
 
       <div id="pedido-itens-lista"></div>
     </div>
