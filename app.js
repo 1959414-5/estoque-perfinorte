@@ -1239,7 +1239,7 @@ function imprimirEtiquetasPedidoRecebimento() {
       Quantidade: item.Quantidade,
       Pedido_Perfinorte: item.Pedido_Perfinorte || '',
       Item_Perfinorte: item.Item_Perfinorte || '',
-      __qrTexto: 'SOLICITACAO:' + item.ID_Solicitacao
+      __qrTexto: 'S:' + item.ID_Solicitacao
     });
   });
 
@@ -1800,9 +1800,15 @@ function buscarPecaEscaneada(codigo) {
 
   // Etiqueta de RECEBIMENTO de um item de solicitação (impressa junto com o
   // pedido da Sênior) — identifica o item exato e já sabe a quantidade,
-  // não é uma peça do catálogo genérica.
-  if (codigo.indexOf('SOLICITACAO:') === 0) {
-    const idSolicitacao = codigo.substring('SOLICITACAO:'.length);
+  // não é uma peça do catálogo genérica. Aceita os dois prefixos: o novo
+  // "S:" (mais curto, imprime QR mais nítido) e o antigo "SOLICITACAO:"
+  // (pra continuar lendo etiquetas que já foram impressas antes dessa troca).
+  const prefixoNovo = 'S:';
+  const prefixoAntigo = 'SOLICITACAO:';
+  if (codigo.indexOf(prefixoNovo) === 0 || codigo.indexOf(prefixoAntigo) === 0) {
+    const idSolicitacao = codigo.indexOf(prefixoNovo) === 0
+      ? codigo.substring(prefixoNovo.length)
+      : codigo.substring(prefixoAntigo.length);
     const item = SOLICITACOES.find(s => s.ID_Solicitacao === idSolicitacao);
     if (!item) { document.getElementById('scan-qr-status').textContent = 'Solicitação não encontrada — tenta recarregar a página.'; return; }
     if (item.Status === 'Entregue' && !confirm('Esse item já foi marcado como recebido antes. Registrar a entrada de novo mesmo assim?')) {
@@ -1955,7 +1961,7 @@ function montarEImprimirEtiquetas(lista, modoRecebimento) {
   holder.style.position = 'fixed';
   holder.style.left = '-9999px';
   document.body.appendChild(holder);
-  const qr = new QRCode(holder, { width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M });
+  const qr = new QRCode(holder, { width: 220, height: 220, correctLevel: QRCode.CorrectLevel.L });
 
   const qrDataUrls = new Array(lista.length);
   let i = 0;
@@ -2076,10 +2082,10 @@ function imprimirViaIframeRecebimento(lista, qrDataUrls) {
     'body { margin: 0; font-family: Arial, Helvetica, sans-serif; }' +
     '.label-r { width: 107mm; height: 48mm; padding: 2.5mm 3mm; display: flex; flex-direction: column; page-break-after: always; overflow: hidden; }' +
     '.label-r-body { display: flex; gap: 3mm; flex: 1; min-height: 0; }' +
-    '.label-r-left { flex: none; width: 26mm; display: flex; flex-direction: column; align-items: center; gap: 1.2mm; }' +
+    '.label-r-left { flex: none; width: 28mm; display: flex; flex-direction: column; align-items: center; gap: 1.2mm; }' +
     '.label-r-marca { text-align: center; align-self: center; font-size: 7pt; font-weight: 800; color: #1a1a1a; letter-spacing: 0.03em; line-height: 1.2; }' +
-    '.label-r-qr { width: 24mm; height: 24mm; display: block; }' +
-    '.label-r-qr-vazio { width: 24mm; height: 24mm; border: 1px dashed #999; display: flex; align-items: center; justify-content: center; font-size: 6.5pt; color: #999; text-align: center; }' +
+    '.label-r-qr { width: 27mm; height: 27mm; display: block; }' +
+    '.label-r-qr-vazio { width: 27mm; height: 27mm; border: 1px dashed #999; display: flex; align-items: center; justify-content: center; font-size: 6.5pt; color: #999; text-align: center; }' +
     '.label-r-aviso { margin-top: auto; background: #f2f2f2; border: 0.3mm solid #999; color: #000; font-size: 7.5pt; font-weight: 800; text-decoration: underline; text-transform: uppercase; text-align: center; padding: 1mm 2mm; border-radius: 1mm; line-height: 1.25; width: 100%; }' +
     '.label-r-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }' +
     '.label-id-box { display: inline-block; align-self: flex-start; border: 0.5mm solid #1a1a1a; border-radius: 1mm; padding: 0.8mm 2mm; font-size: 14pt; font-weight: 800; color: #1a1a1a; line-height: 1.15; }' +
