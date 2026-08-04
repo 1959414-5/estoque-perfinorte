@@ -19,6 +19,27 @@ async function api(acao, params) {
   return j.dados;
 }
 
+// Repete a chamada automaticamente se falhar — só deve ser usada em ações
+// SEGURAS de repetir (leitura, verificar PIN), nunca em ações que alteram
+// dado (registrar movimento, salvar status etc.), pra não correr o risco de
+// aplicar a mesma coisa duas vezes se a 1ª tentativa na verdade tiver dado
+// certo e só a resposta que se perdeu. O Google Apps Script às vezes tem uma
+// folga de alguns segundos logo depois que o código é editado/republicado —
+// isso resolve sozinho na 2ª ou 3ª tentativa quase sempre.
+async function apiComRetry(acao, params, tentativas) {
+  tentativas = tentativas || 3;
+  let ultimoErro;
+  for (let i = 0; i < tentativas; i++) {
+    try {
+      return await api(acao, params);
+    } catch (e) {
+      ultimoErro = e;
+      if (i < tentativas - 1) await new Promise(r => setTimeout(r, 700 * (i + 1)));
+    }
+  }
+  throw ultimoErro;
+}
+
 
 let CONFIG = { status: [], linhas: [], solicitantes: [] };
 let CATALOGO = [];
@@ -63,7 +84,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // Nova Solicitação ou no Painel.
   setInterval(function () {
     if (document.getElementById('view-catalogo').classList.contains('view-active') && document.visibilityState === 'visible') {
-      carregarCatalogo();
+      carregarCatalogo(true);
     }
   }, 45000);
 
@@ -77,8 +98,10 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   document.getElementById('peca-foto-camera').addEventListener('change', e => handleFotoChange(e, 'peca'));
-  document.getElementById('inp-confirmacao-camera').addEventListener('change', handleConfirmacaoPedido);
-  document.getElementById('inp-confirmacao-arquivo').addEventListener('change', handleConfirmacaoPedido);
+  document.getElementById('inp-confirmacao-camera').addEventListener('change', e => handleUploadPedido(e, 'confirmacao'));
+  document.getElementById('inp-confirmacao-arquivo').addEventListener('change', e => handleUploadPedido(e, 'confirmacao'));
+  document.getElementById('inp-localizacao-camera').addEventListener('change', e => handleUploadPedido(e, 'localizacao'));
+  document.getElementById('inp-localizacao-arquivo').addEventListener('change', e => handleUploadPedido(e, 'localizacao'));
 
   const cropWrap = document.getElementById('crop-canvas-wrap');
   cropWrap.addEventListener('mousedown', cropIniciar);
@@ -153,11 +176,11 @@ function montarChipsLinha(containerId, onChangeFn, filtroVarName) {
 // ---------------------------------------------------------
 // CATÁLOGO — carregamento
 // ---------------------------------------------------------
-function carregarCatalogo() {
+function carregarCatalogo(silencioso) {
   const btn = document.getElementById('btn-atualizar-catalogo');
   if (btn) btn.disabled = true;
 
-  api('getCatalogo')
+  apiComRetry('getCatalogo')
     .then(function (lista) {
       CATALOGO = lista || [];
       renderCatalogoLista();
@@ -167,11 +190,14 @@ function carregarCatalogo() {
       }
     })
     .catch(function (err) {
+      // Depois de 3 tentativas ainda falhou — se for atualização automática
+      // em segundo plano, não assusta ninguém com toast; só tenta de novo no
+      // próximo ciclo. Se for ação manual (clicou em algo), aí sim avisa.
       if (!CATALOGO.length) {
         document.getElementById('lista-catalogo').innerHTML =
           '<div class="empty-state"><div class="big">Erro ao carregar</div>' + esc(err.message) + '</div>';
       }
-      toast('Erro ao carregar catálogo: ' + err.message);
+      if (!silencioso) toast('Erro ao carregar catálogo: ' + err.message);
     })
     .finally(function () { if (btn) btn.disabled = false; });
 }
@@ -318,7 +344,7 @@ function editarPecaExistente(id) {
   document.getElementById('peca-nome').value = p.Nome_Peca || '';
   document.getElementById('peca-linha').value = p.Linha || CONFIG.linhas[0];
   document.getElementById('peca-mp').value = p.MP || '';
-  document.getElementById('peca-espessura').value = p.Espessura || '';
+  document.getElementById('peca-espessura').value = String(p.Espessura || '').replace('.', ',');
   document.getElementById('peca-servicos').value = p.Servicos || '';
   document.getElementById('peca-obs').value = p.Observacoes || '';
   document.getElementById('peca-largura').value = p['Largura do Produto'] || '';
@@ -370,7 +396,7 @@ function salvarPecaCatalogo(e) {
     nome: document.getElementById('peca-nome').value.trim(),
     linha: document.getElementById('peca-linha').value,
     mp: document.getElementById('peca-mp').value.trim(),
-    espessura: document.getElementById('peca-espessura').value.trim(),
+    espessura: document.getElementById('peca-espessura').value.trim().replace('.', ','),
     servicos: document.getElementById('peca-servicos').value.trim(),
     observacoes: document.getElementById('peca-obs').value.trim(),
     largura: document.getElementById('peca-largura').value.trim(),
@@ -485,7 +511,7 @@ function renderCatalogoLista() {
       '<div class="catalog-card-id">' + esc(p.ID_Peca) + '</div>' +
       '<div class="catalog-card-name">' + esc(p.Nome_Peca) + '</div>' +
       '<div class="catalog-card-line">' + esc(p.MP || '—') + (p.Espessura ? ' · ' + esc(formatarEspessura(p.Espessura)) : '') + '</div>' +
-      ((largura || comprimento) ? '<div class="catalog-card-line catalog-card-dim">L ' + esc(largura || '—') + ' × C ' + esc(comprimento || '—') + '</div>' : '') +
+      ((largura || comprimento) ? '<div class="catalog-card-line catalog-card-dim">Larg.: ' + esc(formatarMedida(largura) || '—') + ' × Comp.: ' + esc(formatarMedida(comprimento) || '—') + '</div>' : '') +
       (p.Servicos ? '<span class="servicos-tag">' + esc(p.Servicos) + '</span>' : '') +
       '<div class="stock-box stock-' + nivel + '">' +
       '<div class="stock-num">' + estoqueAtual + '</div>' +
@@ -787,7 +813,7 @@ async function enviarSolicitacao(e) {
 // ---------------------------------------------------------
 // PAINEL — agrupado por PEDIDO (vários itens juntos)
 // ---------------------------------------------------------
-const STATUS_ORDEM = ['Solicitado', 'Em produção', 'Entregue'];
+const STATUS_ORDEM = ['Solicitado', 'Em produção', 'Pronto', 'Entregue'];
 let PEDIDOS_CACHE = [];
 let PEDIDO_DETALHE_ATUAL = null;
 let MODO_ADMIN = localStorage.getItem('modoAdmin') === 'true';
@@ -859,7 +885,8 @@ function alternarModoAdmin() {
   }
   const pin = prompt('Digite o PIN pra liberar os controles de status:');
   if (!pin) return;
-  api('verificarPin', { pin: pin })
+  toast('Verificando...');
+  apiComRetry('verificarPin', { pin: pin })
     .then(function (ok) {
       if (ok) {
         MODO_ADMIN = true;
@@ -871,7 +898,7 @@ function alternarModoAdmin() {
       atualizarBotaoModoAdmin();
       renderPainel();
     })
-    .catch(function (err) { toast('Erro: ' + err.message); });
+    .catch(function (err) { toast('Não consegui verificar o PIN (tentei 3x): ' + err.message); });
 }
 
 function atualizarBotaoModoAdmin() {
@@ -1038,30 +1065,37 @@ function renderDetalhePedidoConteudo() {
     pd.itens.length + ' peça' + (pd.itens.length > 1 ? 's' : '') + ' · ' + tempoRelativo(pd.dataHora);
 
   document.getElementById('pedido-admin-actions').style.display = MODO_ADMIN ? 'block' : 'none';
+  const statusPd = statusResumoPedido(pd);
   document.getElementById('btn-etiquetas-recebimento').style.display =
-    (MODO_ADMIN && statusResumoPedido(pd) === 'Em produção') ? 'block' : 'none';
+    (MODO_ADMIN && (statusPd === 'Em produção' || statusPd === 'Pronto')) ? 'block' : 'none';
 
   const pedidoPerfinorte = pd.itens.find(it => it.Pedido_Perfinorte)?.Pedido_Perfinorte || '';
   document.getElementById('inp-pedido-perfinorte').value = pedidoPerfinorte;
 
-  const confRaw = pd.itens.find(it => it.Confirmacao_URL)?.Confirmacao_URL;
-  const confUrls = confRaw ? String(confRaw).split('\n').filter(Boolean) : [];
-  const confWrap = document.getElementById('pedido-confirmacao-anexada');
-  if (confUrls.length) {
-    confWrap.style.display = 'block';
-    confWrap.innerHTML = '<label style="font-size:13px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:6px;">Print' + (confUrls.length > 1 ? 's' : '') + ' anexado' + (confUrls.length > 1 ? 's' : '') + '</label>' +
-      '<div class="photos-preview-row">' + confUrls.map(url =>
+  renderAnexosPedido(pd, 'confirmacao', 'pedido-confirmacao-anexada', 'Print');
+  renderAnexosPedido(pd, 'localizacao', 'pedido-localizacao-anexada', 'Localização');
+
+  document.getElementById('pedido-itens-lista').innerHTML = pd.itens.map(renderItemPedidoDetalhe).join('');
+}
+
+function renderAnexosPedido(pd, tipo, idContainer, rotulo) {
+  const cfg = TIPOS_ANEXO_PEDIDO[tipo];
+  const raw = pd.itens.find(it => it[cfg.campoUrl])?.[cfg.campoUrl];
+  const urls = raw ? String(raw).split('\n').filter(Boolean) : [];
+  const wrap = document.getElementById(idContainer);
+  if (urls.length) {
+    wrap.style.display = 'block';
+    wrap.innerHTML = '<label style="font-size:13px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:6px;">' + esc(rotulo) + (urls.length > 1 ? 's anexados' : ' anexado') + '</label>' +
+      '<div class="photos-preview-row">' + urls.map(url =>
         '<div class="photo-preview-item" style="width:84px; height:84px;">' +
         '<img src="' + url + '" style="cursor:zoom-in;" onclick="abrirImagemFullscreen(\'' + url.replace(/'/g, "\\'") + '\')">' +
-        (MODO_ADMIN ? '<button type="button" class="photo-preview-remove" onclick="event.stopPropagation(); removerPrintAnexado(\'' + url.replace(/'/g, "\\'") + '\')">×</button>' : '') +
+        (MODO_ADMIN ? '<button type="button" class="photo-preview-remove" onclick="event.stopPropagation(); removerAnexoPedido(\'' + url.replace(/'/g, "\\'") + '\', \'' + tipo + '\')">×</button>' : '') +
         '</div>'
       ).join('') + '</div>';
   } else {
-    confWrap.style.display = 'none';
-    confWrap.innerHTML = '';
+    wrap.style.display = 'none';
+    wrap.innerHTML = '';
   }
-
-  document.getElementById('pedido-itens-lista').innerHTML = pd.itens.map(renderItemPedidoDetalhe).join('');
 }
 
 function renderItemPedidoDetalhe(it) {
@@ -1160,7 +1194,28 @@ function salvarQtdItemPedido(idSolicitacao) {
 }
 
 // ---- Confirmação por upload (print do pedido feito na Sênior) ----
-function handleConfirmacaoPedido(e) {
+// Configuração dos dois tipos de anexo que um pedido pode receber — cada um
+// mexe numa coluna diferente e avança pra um status diferente.
+const TIPOS_ANEXO_PEDIDO = {
+  confirmacao: {
+    campoUrl: 'Confirmacao_URL',
+    acaoAnexar: 'anexarConfirmacaoPedido',
+    acaoRemover: 'removerConfirmacaoPedido',
+    statusAlvo: 'Em produção',
+    mensagemSucesso: 'Confirmação anexada — pedido marcado como "Em produção"',
+    seletorBotoes: '#bloco-confirmacao .photo-input, #btn-capturar-tela-confirmacao',
+  },
+  localizacao: {
+    campoUrl: 'Localizacao_URL',
+    acaoAnexar: 'anexarLocalizacaoPedido',
+    acaoRemover: 'removerLocalizacaoPedido',
+    statusAlvo: 'Pronto',
+    mensagemSucesso: 'Localização anexada — pedido marcado como "Pronto"',
+    seletorBotoes: '#bloco-localizacao .photo-input, #btn-capturar-tela-localizacao',
+  },
+};
+
+function handleUploadPedido(e, tipo) {
   const files = Array.from(e.target.files || []);
   if (!files.length) return;
   if (!exigirModoAdmin()) { e.target.value = ''; return; }
@@ -1175,7 +1230,7 @@ function handleConfirmacaoPedido(e) {
       redimensionarBase64(ev.target.result, 1600, function (reduzida) {
         imagensBase64.push(reduzida);
         restantes--;
-        if (restantes === 0) enviarImagensConfirmacao(pd, imagensBase64);
+        if (restantes === 0) enviarImagensPedido(pd, imagensBase64, tipo);
       });
     };
     reader.readAsDataURL(file);
@@ -1183,21 +1238,22 @@ function handleConfirmacaoPedido(e) {
   e.target.value = '';
 }
 
-function removerPrintAnexado(url) {
+function removerAnexoPedido(url, tipo) {
+  const cfg = TIPOS_ANEXO_PEDIDO[tipo];
   if (!exigirModoAdmin()) return;
   const pd = PEDIDOS_CACHE.find(x => x.pedidoId === PEDIDO_DETALHE_ATUAL);
   if (!pd) return;
-  if (!confirm('Remover esse print anexado?')) return;
+  if (!confirm('Remover esse anexo?')) return;
 
-  api('removerConfirmacaoPedido', {
+  api(cfg.acaoRemover, {
     idsSolicitacoes: pd.itens.map(it => it.ID_Solicitacao),
     urlParaRemover: url
   })
     .then(function () {
-      toast('Print removido');
+      toast('Anexo removido');
       pd.itens.forEach(it => {
-        if (it.Confirmacao_URL) {
-          it.Confirmacao_URL = String(it.Confirmacao_URL).split('\n').filter(u => u && u !== url).join('\n');
+        if (it[cfg.campoUrl]) {
+          it[cfg.campoUrl] = String(it[cfg.campoUrl]).split('\n').filter(u => u && u !== url).join('\n');
         }
       });
       renderDetalhePedidoConteudo();
@@ -1205,21 +1261,22 @@ function removerPrintAnexado(url) {
     .catch(function (err) { toast('Erro: ' + err.message); });
 }
 
-function enviarImagensConfirmacao(pd, imagensBase64) {
-  const botoes = document.querySelectorAll('#pedido-admin-actions .photo-input, #btn-capturar-tela');
+function enviarImagensPedido(pd, imagensBase64, tipo) {
+  const cfg = TIPOS_ANEXO_PEDIDO[tipo];
+  const botoes = document.querySelectorAll(cfg.seletorBotoes);
   botoes.forEach(b => b.style.opacity = '0.6');
-  api('anexarConfirmacaoPedido', {
+  api(cfg.acaoAnexar, {
     idsSolicitacoes: pd.itens.map(it => it.ID_Solicitacao),
     imagensBase64: imagensBase64,
     usuario: 'Bárbara'
   })
     .then(function (urls) {
-      toast('Confirmação anexada — pedido marcado como "Em produção"');
+      toast(cfg.mensagemSucesso);
       pd.itens.forEach(it => {
-        it.Confirmacao_URL = it.Confirmacao_URL ? it.Confirmacao_URL + '\n' + urls : urls;
+        it[cfg.campoUrl] = it[cfg.campoUrl] ? it[cfg.campoUrl] + '\n' + urls : urls;
         const idxAtual = STATUS_ORDEM.indexOf(it.Status);
-        const idxAlvo = STATUS_ORDEM.indexOf('Em produção');
-        if (idxAtual !== -1 && idxAtual < idxAlvo) it.Status = 'Em produção';
+        const idxAlvo = STATUS_ORDEM.indexOf(cfg.statusAlvo);
+        if (idxAtual !== -1 && idxAtual < idxAlvo) it.Status = cfg.statusAlvo;
       });
       renderDetalhePedidoConteudo();
       renderPainel();
@@ -1231,7 +1288,7 @@ function enviarImagensConfirmacao(pd, imagensBase64) {
 // Captura de tela/janela — abre o seletor nativo do sistema (Windows/Mac/Chrome OS)
 // e tira um "print" de um frame do que foi escolhido. Só funciona em navegador
 // de computador (a API não existe em navegadores de celular).
-async function capturarTelaConfirmacao() {
+async function capturarTelaPedido(tipo) {
   if (!exigirModoAdmin()) return;
   const pd = PEDIDOS_CACHE.find(x => x.pedidoId === PEDIDO_DETALHE_ATUAL);
   if (!pd) return;
@@ -1267,7 +1324,7 @@ async function capturarTelaConfirmacao() {
   const bruta = canvas.toDataURL('image/png');
   abrirCropCaptura(bruta, function (cortada) {
     redimensionarBase64(cortada, 1600, function (reduzida) {
-      enviarImagensConfirmacao(pd, [reduzida]);
+      enviarImagensPedido(pd, [reduzida], tipo);
     });
   });
 }
@@ -1997,6 +2054,15 @@ function limparZerosQuantidadeOpcional(el) {
   if (el.value.trim() === '') return;
   const limpo = Math.max(0, parseInt(el.value, 10) || 0);
   el.value = limpo;
+}
+
+// Formata dimensões com separador de milhar (3000 -> 3.000). Se não for um
+// número puro (ex: já vier com texto), devolve como está, sem quebrar nada.
+function formatarMedida(valor) {
+  if (valor === undefined || valor === null || valor === '') return '';
+  const n = Number(valor);
+  if (isNaN(n)) return String(valor);
+  return n.toLocaleString('pt-BR');
 }
 
 function esc(str) {
