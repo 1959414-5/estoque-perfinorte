@@ -19,6 +19,23 @@ async function api(acao, params) {
   return j.dados;
 }
 
+// Repete automaticamente se falhar — o Google Apps Script às vezes tem uma
+// folga de alguns segundos bem na hora que o código é editado/republicado,
+// e isso resolve sozinho na 2ª/3ª tentativa quase sempre.
+async function apiComRetry(acao, params, tentativas) {
+  tentativas = tentativas || 3;
+  let ultimoErro;
+  for (let i = 0; i < tentativas; i++) {
+    try {
+      return await api(acao, params);
+    } catch (e) {
+      ultimoErro = e;
+      if (i < tentativas - 1) await new Promise(r => setTimeout(r, 700 * (i + 1)));
+    }
+  }
+  throw ultimoErro;
+}
+
 function esc(str) {
   if (str === undefined || str === null) return '';
   return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -31,6 +48,13 @@ function formatarEspessura(valor) {
   const n = Number(valor);
   if (isNaN(n)) return String(valor);
   return n.toFixed(2).replace('.', ',') + 'mm';
+}
+
+function formatarMedida(valor) {
+  if (valor === undefined || valor === null || valor === '') return '';
+  const n = Number(valor);
+  if (isNaN(n)) return String(valor);
+  return n.toLocaleString('pt-BR');
 }
 
 function toast(msg) {
@@ -60,20 +84,20 @@ document.addEventListener('DOMContentLoaded', function () {
   // Atualiza sozinho em segundo plano, sem precisar recarregar a página —
   // assim o estoque mostrado fica sempre bem próximo do real. Silencioso:
   // só troca os números, não pisca nem reseta o que a pessoa estava vendo.
-  setInterval(carregarCatalogo, 45000);
+  setInterval(function () { carregarCatalogo(true); }, 45000);
 
   // Se a pessoa deixar a aba aberta e minimizada, ao voltar pra ela já
   // atualiza na hora, sem precisar esperar o próximo ciclo de 45s.
   document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible') carregarCatalogo();
+    if (document.visibilityState === 'visible') carregarCatalogo(true);
   });
 });
 
-function carregarCatalogo() {
+function carregarCatalogo(silencioso) {
   const btn = document.getElementById('btn-atualizar');
   btn.disabled = true;
 
-  api('getCatalogo')
+  apiComRetry('getCatalogo')
     .then(function (lista) {
       CATALOGO = lista || [];
       renderLista();
@@ -86,7 +110,7 @@ function carregarCatalogo() {
         document.getElementById('lista-catalogo').innerHTML =
           '<div class="empty-state"><div class="big">Erro ao carregar</div>' + esc(err.message) + '</div>';
       }
-      toast('Erro ao atualizar: ' + err.message);
+      if (!silencioso) toast('Erro ao atualizar: ' + err.message);
     })
     .finally(function () { btn.disabled = false; });
 }
@@ -147,7 +171,7 @@ function renderLista() {
       '<div class="catalog-card-id">' + esc(p.ID_Peca) + '</div>' +
       '<div class="catalog-card-name">' + esc(p.Nome_Peca) + '</div>' +
       '<div class="catalog-card-line">' + esc(p.MP || '—') + (p.Espessura ? ' · ' + esc(formatarEspessura(p.Espessura)) : '') + '</div>' +
-      ((largura || comprimento) ? '<div class="catalog-card-line catalog-card-dim">L ' + esc(largura || '—') + ' × C ' + esc(comprimento || '—') + '</div>' : '') +
+      ((largura || comprimento) ? '<div class="catalog-card-line catalog-card-dim">Larg.: ' + esc(formatarMedida(largura) || '—') + ' × Comp.: ' + esc(formatarMedida(comprimento) || '—') + '</div>' : '') +
       (p.Servicos ? '<span class="servicos-tag">' + esc(p.Servicos) + '</span>' : '') +
       '<div class="stock-box stock-' + nivel + '">' +
       '<div class="stock-num">' + estoqueAtual + '</div>' +
