@@ -292,6 +292,7 @@ function abrirModalPecaNova(origem) {
   document.getElementById('peca-ativo').checked = true;
   document.getElementById('peca-estoque-atual').value = '';
   document.getElementById('peca-estoque-minimo').value = '';
+  document.getElementById('peca-estoque-maximo').value = '';
   document.getElementById('modal-peca-titulo').textContent = 'Nova peça no catálogo';
   document.getElementById('modal-peca').classList.remove('hidden');
 }
@@ -324,6 +325,7 @@ function editarPecaExistente(id) {
   document.getElementById('peca-comprimento').value = p['Comprimento do Produto'] || '';
   document.getElementById('peca-estoque-atual').value = p['Estoque_Atual'] || 0;
   document.getElementById('peca-estoque-minimo').value = p['Estoque_Minimo'] || 0;
+  document.getElementById('peca-estoque-maximo').value = p['Estoque_Maximo'] || '';
   document.getElementById('campo-peca-ativo').style.display = 'block';
   document.getElementById('peca-ativo').checked = p.Ativo !== false;
 
@@ -375,6 +377,7 @@ function salvarPecaCatalogo(e) {
     comprimento: document.getElementById('peca-comprimento').value.trim(),
     estoqueAtual: document.getElementById('peca-estoque-atual').value.trim(),
     estoqueMinimo: document.getElementById('peca-estoque-minimo').value.trim(),
+    estoqueMaximo: document.getElementById('peca-estoque-maximo').value.trim(),
     ativo: document.getElementById('peca-ativo').checked,
     imagemUrl: PECA_IMAGEM_URL_ATUAL,
     imagemBase64: PECA_IMAGEM_BASE64
@@ -577,6 +580,20 @@ function atualizarQtdItem(uid, valor) {
   if (item) item.quantidade = Math.max(1, Number(valor) || 1);
 }
 
+// Trava a quantidade no Estoque Máximo cadastrado da peça (se houver) —
+// evita que o colaborador peça mais do que é permitido pra aquele item.
+function validarMaximoItem(el, uid) {
+  const item = acharItemSolicitacao(uid);
+  if (!item || !item.peca) return;
+  const max = Number(item.peca.Estoque_Maximo);
+  if (item.peca.Estoque_Maximo === '' || item.peca.Estoque_Maximo === undefined || isNaN(max)) return;
+  const atual = Number(el.value) || 1;
+  if (atual > max) {
+    el.value = max;
+    toast('Quantidade máxima permitida pra essa peça: ' + max);
+  }
+}
+
 function atualizarUrgenteItem(uid, valor) {
   const item = acharItemSolicitacao(uid);
   if (item) item.urgente = valor;
@@ -590,15 +607,27 @@ function atualizarObsItem(uid, valor) {
 function abrirPickerParaItem(uid) {
   abrirPickerPeca(function (p) {
     const item = acharItemSolicitacao(uid);
-    if (item) { item.peca = p; renderItensSolicitacao(); }
+    if (item) { item.peca = p; aplicarMaximoNoItem(item); renderItensSolicitacao(); }
   });
 }
 
 function abrirScanParaItem(uid) {
   abrirScanQR(function (p) {
     const item = acharItemSolicitacao(uid);
-    if (item) { item.peca = p; renderItensSolicitacao(); }
+    if (item) { item.peca = p; aplicarMaximoNoItem(item); renderItensSolicitacao(); }
   });
+}
+
+// Reaplica o teto de Estoque Máximo quando a peça do item muda — se a
+// quantidade que já estava digitada passar do novo máximo, ajusta sozinho.
+function aplicarMaximoNoItem(item) {
+  if (!item.peca) return;
+  const max = Number(item.peca.Estoque_Maximo);
+  if (item.peca.Estoque_Maximo === '' || item.peca.Estoque_Maximo === undefined || isNaN(max)) return;
+  if (item.quantidade > max) {
+    item.quantidade = max;
+    toast('Quantidade máxima permitida pra essa peça: ' + max);
+  }
 }
 
 function removerFotoItem(uid, idx) {
@@ -643,8 +672,8 @@ function renderItemSolicitacaoCard(item, idx) {
     '</div>' +
 
     '<div class="field">' +
-    '<label>Quantidade</label>' +
-    '<input type="number" min="1" inputmode="numeric" value="' + item.quantidade + '" oninput="atualizarQtdItem(\'' + item.uid + '\', this.value)" onblur="limparZerosQuantidade(this, 1); atualizarQtdItem(\'' + item.uid + '\', this.value)">' +
+    '<label>Quantidade' + (p && p.Estoque_Maximo !== '' && p.Estoque_Maximo !== undefined && !isNaN(Number(p.Estoque_Maximo)) ? ' <span style="font-weight:400; color:var(--ink-soft);">(máx. permitido: ' + esc(p.Estoque_Maximo) + ')</span>' : '') + '</label>' +
+    '<input type="number" min="1" inputmode="numeric" value="' + item.quantidade + '" oninput="atualizarQtdItem(\'' + item.uid + '\', this.value)" onblur="limparZerosQuantidade(this, 1); validarMaximoItem(this, \'' + item.uid + '\'); atualizarQtdItem(\'' + item.uid + '\', this.value)">' +
     '</div>' +
 
     '<div class="field">' +
@@ -707,6 +736,11 @@ async function enviarSolicitacao(e) {
   for (const item of ITENS_SOLICITACAO) {
     if (!item.peca) { toast('Selecione a peça em todas as linhas'); return; }
     if (!item.quantidade || item.quantidade <= 0) { toast('Quantidade inválida em alguma peça'); return; }
+    const max = Number(item.peca.Estoque_Maximo);
+    if (item.peca.Estoque_Maximo !== '' && item.peca.Estoque_Maximo !== undefined && !isNaN(max) && item.quantidade > max) {
+      toast('Quantidade de "' + item.peca.Nome_Peca + '" passa do máximo permitido (' + max + ')');
+      return;
+    }
   }
 
   localStorage.setItem('nomeUsuario', solicitante);
@@ -1954,6 +1988,14 @@ function formatarEspessura(valor) {
 function limparZerosQuantidade(el, minimoPermitido) {
   const min = minimoPermitido === undefined ? 1 : minimoPermitido;
   const limpo = Math.max(min, parseInt(el.value, 10) || min);
+  el.value = limpo;
+}
+
+// Igual à de cima, mas deixa o campo vazio continuar vazio (usado no Estoque
+// Máximo, onde "em branco" significa "sem limite" — não pode virar 0 sozinho).
+function limparZerosQuantidadeOpcional(el) {
+  if (el.value.trim() === '') return;
+  const limpo = Math.max(0, parseInt(el.value, 10) || 0);
   el.value = limpo;
 }
 
