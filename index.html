@@ -236,6 +236,10 @@
             <input type="number" id="peca-estoque-minimo" min="0" inputmode="numeric" placeholder="0" onblur="limparZerosQuantidade(this, 0)">
           </div>
         </div>
+        <div class="field">
+          <label>Estoque Máximo (opcional)</label>
+          <input type="number" id="peca-estoque-maximo" min="0" inputmode="numeric" placeholder="Deixe em branco pra não limitar" onblur="limparZerosQuantidadeOpcional(this)">
+        </div>
 
         <div class="field" id="campo-peca-ativo" style="display:none;">
           <label class="toggle-switch-label">
