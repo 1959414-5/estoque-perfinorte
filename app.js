@@ -189,6 +189,7 @@ function carregarCatalogo(silencioso) {
     .then(function (lista) {
       CATALOGO = lista || [];
       renderCatalogoLista();
+      renderPainelAlertas();
       if (CATALOGO.length === 0) rodarDiagnosticoCatalogo();
       if (document.getElementById('modal-picker-peca').classList.contains('hidden') === false) {
         filtrarPickerPeca();
@@ -527,6 +528,89 @@ function inativarPecaAtual(id) {
     .catch(function (err) { toast('Erro: ' + err.message); });
 }
 
+// ---------------------------------------------------------
+// ALERTAS DE ESTOQUE — 3 níveis (atenção / mínimo / zerado), cada um com um
+// botão pra já abrir a solicitação pré-preenchida, pra facilitar a vida.
+// ---------------------------------------------------------
+function calcularAlertasEstoque() {
+  const alertas = [];
+  CATALOGO.forEach(p => {
+    if (p.Ativo === false) return;
+    const atual = Number(p['Estoque_Atual'] || 0);
+    const minimo = Number(p['Estoque_Minimo'] || 0);
+
+    let tier = null;
+    if (atual <= 0) tier = 'zerado';
+    else if (atual <= minimo) tier = 'minimo';
+    else if (atual <= minimo + 3) tier = 'atencao';
+    if (!tier) return;
+
+    const espaco = espacoDisponivelParaPedir(p); // null se sem Estoque Máximo
+    const alvo = espaco !== null ? Number(p['Estoque_Maximo']) : minimo * 2;
+    let sugerida = Math.max(1, alvo - atual);
+    if (espaco !== null) sugerida = Math.min(sugerida, espaco);
+
+    alertas.push({ peca: p, tier: tier, atual: atual, minimo: minimo, sugerida: sugerida });
+  });
+  const ordem = { zerado: 0, minimo: 1, atencao: 2 };
+  alertas.sort((a, b) => ordem[a.tier] - ordem[b.tier]);
+  return alertas;
+}
+
+function renderPainelAlertas() {
+  const alertas = calcularAlertasEstoque();
+  const btn = document.getElementById('btn-alertas-estoque');
+  const painel = document.getElementById('painel-alertas-estoque');
+
+  if (!alertas.length) {
+    btn.classList.add('hidden');
+    painel.classList.add('hidden');
+    painel.innerHTML = '';
+    return;
+  }
+
+  btn.classList.remove('hidden');
+  document.getElementById('texto-alertas-estoque').textContent =
+    alertas.length + ' peça' + (alertas.length > 1 ? 's precisam' : ' precisa') + ' de atenção no estoque — toque pra ver';
+
+  painel.innerHTML = alertas.map(a => {
+    let msg;
+    if (a.tier === 'zerado') msg = 'Estoque zerado — mínimo cadastrado: ' + a.minimo;
+    else if (a.tier === 'minimo') msg = 'No estoque mínimo — restam ' + a.atual + ' (mínimo: ' + a.minimo + ')';
+    else msg = 'Perto do mínimo — restam ' + a.atual + ' (mínimo: ' + a.minimo + ')';
+
+    return '<div class="alerta-estoque-card tier-' + a.tier + '">' +
+      '<div class="alerta-estoque-info">' +
+      '<div class="alerta-estoque-nome">' + esc(a.peca.Nome_Peca) + '</div>' +
+      '<div class="alerta-estoque-msg">' + esc(msg) + '</div>' +
+      '</div>' +
+      '<button type="button" class="alerta-estoque-btn" onclick="solicitarMaisAlerta(\'' + esc(a.peca.ID_Peca) + '\', ' + a.sugerida + ')">Solicitar mais (' + a.sugerida + ')</button>' +
+      '</div>';
+  }).join('');
+}
+
+function alternarPainelAlertas() {
+  document.getElementById('painel-alertas-estoque').classList.toggle('hidden');
+}
+
+// Pré-preenche a Nova Solicitação com a peça e a quantidade sugerida — o
+// João só confere e toca em Enviar (dá pra marcar urgente ali mesmo).
+function solicitarMaisAlerta(idPeca, quantidadeSugerida) {
+  const peca = CATALOGO.find(p => p.ID_Peca === idPeca);
+  if (!peca) { toast('Peça não encontrada'); return; }
+
+  trocarView('nova');
+  abrirFormNova();
+
+  const item = novoItemVazio();
+  item.peca = peca;
+  item.quantidade = Math.max(1, quantidadeSugerida);
+  item.urgente = (calcularAlertasEstoque().find(a => a.peca.ID_Peca === idPeca) || {}).tier === 'zerado';
+  ITENS_SOLICITACAO = [item];
+  renderItensSolicitacao();
+  toast('Solicitação pré-preenchida — confira e toque em Enviar');
+}
+
 function alternarFiltroEstoqueBaixo() {
   FILTRO_ESTOQUE_BAIXO = !FILTRO_ESTOQUE_BAIXO;
   document.getElementById('filtro-estoque-baixo').classList.toggle('selected', FILTRO_ESTOQUE_BAIXO);
@@ -676,15 +760,30 @@ function atualizarQtdItem(uid, valor) {
 
 // Trava a quantidade no Estoque Máximo cadastrado da peça (se houver) —
 // evita que o colaborador peça mais do que é permitido pra aquele item.
+// Quanto ainda cabe pedir dessa peça sem passar do Estoque Máximo (capacidade
+// total) — considera o que já tem em estoque, não só a quantidade digitada.
+// Retorna null se a peça não tem Estoque Máximo configurado (sem limite).
+function espacoDisponivelParaPedir(peca) {
+  if (!peca) return null;
+  const max = Number(peca.Estoque_Maximo);
+  if (peca.Estoque_Maximo === '' || peca.Estoque_Maximo === undefined || isNaN(max)) return null;
+  const atual = Number(peca['Estoque_Atual'] || 0);
+  return Math.max(0, max - atual);
+}
+
 function validarMaximoItem(el, uid) {
   const item = acharItemSolicitacao(uid);
   if (!item || !item.peca) return;
-  const max = Number(item.peca.Estoque_Maximo);
-  if (item.peca.Estoque_Maximo === '' || item.peca.Estoque_Maximo === undefined || isNaN(max)) return;
+  const espaco = espacoDisponivelParaPedir(item.peca);
+  if (espaco === null) return; // sem máximo configurado, não limita
   const atual = Number(el.value) || 1;
-  if (atual > max) {
-    el.value = max;
-    toast('Quantidade máxima permitida pra essa peça: ' + max);
+  if (atual > espaco) {
+    el.value = Math.max(1, espaco);
+    if (espaco <= 0) {
+      toast('"' + item.peca.Nome_Peca + '" já está no estoque máximo (' + item.peca.Estoque_Maximo + ') — não é possível pedir mais agora.');
+    } else {
+      toast('Só é possível pedir mais ' + espaco + ' de "' + item.peca.Nome_Peca + '" — estoque atual (' + (item.peca['Estoque_Atual'] || 0) + ') + isso já bate no máximo (' + item.peca.Estoque_Maximo + ').');
+    }
   }
 }
 
@@ -701,26 +800,48 @@ function atualizarObsItem(uid, valor) {
 function abrirPickerParaItem(uid) {
   abrirPickerPeca(function (p) {
     const item = acharItemSolicitacao(uid);
-    if (item) { item.peca = p; aplicarMaximoNoItem(item); renderItensSolicitacao(); }
+    if (!item) return;
+    if (!aceitarPecaNoLimite(p)) return;
+    item.peca = p;
+    aplicarMaximoNoItem(item);
+    renderItensSolicitacao();
   });
 }
 
 function abrirScanParaItem(uid) {
   abrirScanQR(function (p) {
     const item = acharItemSolicitacao(uid);
-    if (item) { item.peca = p; aplicarMaximoNoItem(item); renderItensSolicitacao(); }
+    if (!item) return;
+    if (!aceitarPecaNoLimite(p)) return;
+    item.peca = p;
+    aplicarMaximoNoItem(item);
+    renderItensSolicitacao();
   });
 }
 
+// Se a peça já está no estoque máximo (ou acima), barra a seleção e explica
+// o motivo — não dá nem pra escolher essa peça na solicitação nesse caso.
+function aceitarPecaNoLimite(peca) {
+  const espaco = espacoDisponivelParaPedir(peca);
+  if (espaco !== null && espaco <= 0) {
+    alert('Não é possível solicitar "' + peca.Nome_Peca + '" agora.\n\n' +
+      'Estoque atual: ' + (peca['Estoque_Atual'] || 0) + '\n' +
+      'Estoque máximo cadastrado: ' + peca.Estoque_Maximo + '\n\n' +
+      'O estoque dessa peça já está no limite máximo — pedir mais faria passar da capacidade cadastrada.');
+    return false;
+  }
+  return true;
+}
+
 // Reaplica o teto de Estoque Máximo quando a peça do item muda — se a
-// quantidade que já estava digitada passar do novo máximo, ajusta sozinho.
+// quantidade que já estava digitada passar do que ainda cabe, ajusta sozinho.
 function aplicarMaximoNoItem(item) {
   if (!item.peca) return;
-  const max = Number(item.peca.Estoque_Maximo);
-  if (item.peca.Estoque_Maximo === '' || item.peca.Estoque_Maximo === undefined || isNaN(max)) return;
-  if (item.quantidade > max) {
-    item.quantidade = max;
-    toast('Quantidade máxima permitida pra essa peça: ' + max);
+  const espaco = espacoDisponivelParaPedir(item.peca);
+  if (espaco === null) return;
+  if (item.quantidade > espaco) {
+    item.quantidade = Math.max(1, espaco);
+    toast('Quantidade ajustada pra ' + item.quantidade + ' — é o máximo que ainda cabe pra essa peça sem passar da capacidade.');
   }
 }
 
@@ -766,7 +887,7 @@ function renderItemSolicitacaoCard(item, idx) {
     '</div>' +
 
     '<div class="field">' +
-    '<label>Quantidade' + (p && p.Estoque_Maximo !== '' && p.Estoque_Maximo !== undefined && !isNaN(Number(p.Estoque_Maximo)) ? ' <span style="font-weight:400; color:var(--ink-soft);">(máx. permitido: ' + esc(p.Estoque_Maximo) + ')</span>' : '') + '</label>' +
+    '<label>Quantidade' + (p && espacoDisponivelParaPedir(p) !== null ? ' <span style="font-weight:400; color:var(--ink-soft);">(cabe pedir até: ' + esc(espacoDisponivelParaPedir(p)) + ')</span>' : '') + '</label>' +
     '<input type="number" min="1" inputmode="numeric" value="' + item.quantidade + '" oninput="atualizarQtdItem(\'' + item.uid + '\', this.value)" onblur="limparZerosQuantidade(this, 1); validarMaximoItem(this, \'' + item.uid + '\'); atualizarQtdItem(\'' + item.uid + '\', this.value)">' +
     '</div>' +
 
@@ -830,9 +951,9 @@ async function enviarSolicitacao(e) {
   for (const item of ITENS_SOLICITACAO) {
     if (!item.peca) { toast('Selecione a peça em todas as linhas'); return; }
     if (!item.quantidade || item.quantidade <= 0) { toast('Quantidade inválida em alguma peça'); return; }
-    const max = Number(item.peca.Estoque_Maximo);
-    if (item.peca.Estoque_Maximo !== '' && item.peca.Estoque_Maximo !== undefined && !isNaN(max) && item.quantidade > max) {
-      toast('Quantidade de "' + item.peca.Nome_Peca + '" passa do máximo permitido (' + max + ')');
+    const espaco = espacoDisponivelParaPedir(item.peca);
+    if (espaco !== null && item.quantidade > espaco) {
+      toast('"' + item.peca.Nome_Peca + '": pedindo ' + item.quantidade + ', mas só cabem mais ' + espaco + ' sem passar do estoque máximo (' + item.peca.Estoque_Maximo + ').');
       return;
     }
   }
