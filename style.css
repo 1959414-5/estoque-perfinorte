@@ -710,6 +710,13 @@
   }
   .item-picker-row { display: flex; gap: 8px; }
   .item-picker-row .peca-picker-btn { flex: 1; }
+
+  .item-imagem-confirm-wrap { text-align: center; }
+  .item-imagem-confirm {
+    max-width: 100%; max-height: 190px; border-radius: 12px;
+    border: 1.5px solid var(--line); cursor: zoom-in; object-fit: contain;
+    background: var(--bg);
+  }
   .item-scan-btn {
     flex: none; width: 48px; border-radius: var(--radius);
     border: 1.5px solid var(--line); background: var(--surface); font-size: 19px;
