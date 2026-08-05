@@ -46,7 +46,9 @@ let CATALOGO = [];
 let SOLICITACOES = [];
 
 let PECA_IMAGEM_BASE64 = null;    // nova foto anexada no form de peça (se trocou)
+let PECA_IMAGEM_ETIQUETA_BASE64 = null;  // nova foto exclusiva pra etiqueta (se trocou)
 let PECA_IMAGEM_URL_ATUAL = '';   // url já existente da peça (se editando)
+let PECA_IMAGEM_ETIQUETA_URL_ATUAL = '';   // url já existente da imagem de etiqueta (se editando)
 let MODO_PECA_ORIGEM = 'catalogo'; // 'catalogo' | 'solicitacao' — de onde abriu o form de peça
 
 let FILTRO_STATUS = 'Todos';
@@ -98,6 +100,8 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   document.getElementById('peca-foto-camera').addEventListener('change', e => handleFotoChange(e, 'peca'));
+  document.getElementById('peca-foto-etiqueta-camera').addEventListener('change', e => handleFotoChange(e, 'etiqueta'));
+  document.getElementById('peca-foto-etiqueta-arquivo').addEventListener('change', e => handleFotoChange(e, 'etiqueta'));
   document.getElementById('inp-confirmacao-camera').addEventListener('change', e => handleUploadPedido(e, 'confirmacao'));
   document.getElementById('inp-confirmacao-arquivo').addEventListener('change', e => handleUploadPedido(e, 'confirmacao'));
   document.getElementById('inp-localizacao-camera').addEventListener('change', e => handleUploadPedido(e, 'localizacao'));
@@ -381,6 +385,9 @@ function abrirModalPecaNova(origem) {
   PECA_IMAGEM_BASE64 = null;
   PECA_IMAGEM_URL_ATUAL = '';
   document.getElementById('peca-imagem-preview').style.display = 'none';
+  PECA_IMAGEM_ETIQUETA_BASE64 = null;
+  PECA_IMAGEM_ETIQUETA_URL_ATUAL = '';
+  document.getElementById('peca-imagem-etiqueta-preview').style.display = 'none';
   document.getElementById('btn-remover-peca').style.display = 'none';
   document.getElementById('btn-imprimir-etiqueta').style.display = 'none';
   document.getElementById('campo-peca-ativo').style.display = 'none';
@@ -430,6 +437,12 @@ function editarPecaExistente(id) {
   if (PECA_IMAGEM_URL_ATUAL) { preview.src = PECA_IMAGEM_URL_ATUAL; preview.style.display = 'block'; }
   else { preview.style.display = 'none'; }
 
+  PECA_IMAGEM_ETIQUETA_BASE64 = null;
+  PECA_IMAGEM_ETIQUETA_URL_ATUAL = p.Imagem_Etiqueta_URL || '';
+  const previewEtiqueta = document.getElementById('peca-imagem-etiqueta-preview');
+  if (PECA_IMAGEM_ETIQUETA_URL_ATUAL) { previewEtiqueta.src = PECA_IMAGEM_ETIQUETA_URL_ATUAL; previewEtiqueta.style.display = 'block'; }
+  else { previewEtiqueta.style.display = 'none'; }
+
   document.getElementById('btn-remover-peca').style.display = 'block';
   document.getElementById('btn-imprimir-etiqueta').style.display = 'block';
   document.getElementById('modal-peca-titulo').textContent = 'Editar peça';
@@ -475,7 +488,9 @@ function salvarPecaCatalogo(e) {
     estoqueMaximo: document.getElementById('peca-estoque-maximo').value.trim(),
     ativo: document.getElementById('peca-ativo').checked,
     imagemUrl: PECA_IMAGEM_URL_ATUAL,
-    imagemBase64: PECA_IMAGEM_BASE64
+    imagemBase64: PECA_IMAGEM_BASE64,
+    imagemEtiquetaUrl: PECA_IMAGEM_ETIQUETA_URL_ATUAL,
+    imagemEtiquetaBase64: PECA_IMAGEM_ETIQUETA_BASE64
   };
   if (!idEdicao && !idDigitado) { toast('Informe o ID da peça'); return; }
   if (!peca.nome) { toast('Dê um nome pra peça'); return; }
@@ -706,10 +721,17 @@ function handleFotoChange(e, alvo) {
   const reader = new FileReader();
   reader.onload = function (ev) {
     redimensionarBase64(ev.target.result, 1600, function (reduzida) {
-      PECA_IMAGEM_BASE64 = reduzida;
-      const img = document.getElementById('peca-imagem-preview');
-      img.src = PECA_IMAGEM_BASE64;
-      img.style.display = 'block';
+      if (alvo === 'etiqueta') {
+        PECA_IMAGEM_ETIQUETA_BASE64 = reduzida;
+        const img = document.getElementById('peca-imagem-etiqueta-preview');
+        img.src = reduzida;
+        img.style.display = 'block';
+      } else {
+        PECA_IMAGEM_BASE64 = reduzida;
+        const img = document.getElementById('peca-imagem-preview');
+        img.src = reduzida;
+        img.style.display = 'block';
+      }
     });
   };
   reader.readAsDataURL(file);
@@ -2157,7 +2179,10 @@ function imprimirViaIframe(lista, qrDataUrls) {
 
   const labelsHtml = lista.map((p, i) => {
     const dims = (largura(p) || comprimento(p)) ? (esc(largura(p) || '') + '×' + esc(comprimento(p) || '') + 'mm') : '';
-    const temFoto = !!p.Imagem_URL;
+    // Prioriza a imagem exclusiva de etiqueta (mais "limpa" pra impressão) —
+    // se a peça não tiver uma cadastrada, cai pra imagem normal do catálogo.
+    const imagemParaEtiqueta = p.Imagem_Etiqueta_URL || p.Imagem_URL;
+    const temFoto = !!imagemParaEtiqueta;
     return '<div class="label">' +
       '<div class="label-top">' +
       '<div class="label-qr-wrap">' +
@@ -2173,7 +2198,7 @@ function imprimirViaIframe(lista, qrDataUrls) {
       '</div>' +
       '</div>' +
       '<div class="label-photo-wrap">' +
-      (temFoto ? '<img class="label-photo" src="' + p.Imagem_URL + '">' : '<div class="label-photo-vazio">sem foto</div>') +
+      (temFoto ? '<img class="label-photo" src="' + imagemParaEtiqueta + '">' : '<div class="label-photo-vazio">sem foto</div>') +
       '</div>' +
       '</div>' +
       '<div class="label-bottom">' +
