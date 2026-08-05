@@ -276,7 +276,7 @@
         </div>
 
         <div class="field">
-          <label>Imagem da peça (opcional)</label>
+          <label>Imagem da peça (opcional) — aparece no catálogo</label>
           <div class="photo-buttons-row">
             <div class="photo-input">
               <input type="file" id="peca-foto-camera" accept="image/*" capture="environment">
@@ -288,6 +288,21 @@
             </div>
           </div>
           <img id="peca-imagem-preview" class="photo-preview">
+        </div>
+
+        <div class="field">
+          <label>Imagem exclusiva pra etiqueta (opcional) — se não preencher, a etiqueta usa a imagem do catálogo acima</label>
+          <div class="photo-buttons-row">
+            <div class="photo-input">
+              <input type="file" id="peca-foto-etiqueta-camera" accept="image/*" capture="environment">
+              📷 Tirar foto
+            </div>
+            <div class="photo-input">
+              <input type="file" id="peca-foto-etiqueta-arquivo" accept="image/*">
+              🖼️ Escolher arquivo
+            </div>
+          </div>
+          <img id="peca-imagem-etiqueta-preview" class="photo-preview">
         </div>
 
         <button type="submit" class="btn-primary">Salvar peça</button>
