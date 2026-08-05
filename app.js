@@ -908,6 +908,10 @@ function renderItemSolicitacaoCard(item, idx) {
     '</div>' +
     '</div>' +
 
+    (p && p.Imagem_URL
+      ? '<div class="field item-imagem-confirm-wrap"><img src="' + p.Imagem_URL + '" class="item-imagem-confirm" onclick="abrirImagemFullscreen(\'' + p.Imagem_URL.replace(/'/g, "\\'") + '\')"></div>'
+      : '') +
+
     '<div class="field">' +
     '<label>Quantidade' + (p && espacoDisponivelParaPedir(p) !== null ? ' <span style="font-weight:400; color:var(--ink-soft);">(cabe pedir até: ' + esc(espacoDisponivelParaPedir(p)) + ')</span>' : '') + '</label>' +
     '<input type="number" min="1" inputmode="numeric" value="' + item.quantidade + '" oninput="atualizarQtdItem(\'' + item.uid + '\', this.value)" onblur="limparZerosQuantidade(this, 1); validarMaximoItem(this, \'' + item.uid + '\'); atualizarQtdItem(\'' + item.uid + '\', this.value)">' +
