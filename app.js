@@ -2083,24 +2083,24 @@ function imprimirViaIframeRecebimento(lista, qrDataUrls) {
     '.label-r { width: 107mm; height: 48mm; padding: 2.5mm 3mm; display: flex; flex-direction: column; page-break-after: always; overflow: hidden; }' +
     '.label-r-body { display: flex; gap: 3mm; flex: 1; min-height: 0; }' +
     '.label-r-left { flex: none; width: 28mm; display: flex; flex-direction: column; align-items: center; gap: 1.2mm; }' +
-    '.label-r-marca { text-align: center; align-self: center; font-size: 7pt; font-weight: 800; color: #1a1a1a; letter-spacing: 0.03em; line-height: 1.2; }' +
+    '.label-r-marca { text-align: center; align-self: center; font-size: 7pt; font-weight: 800; color: #000; letter-spacing: 0.03em; line-height: 1.2; }' +
     '.label-r-qr { width: 27mm; height: 27mm; display: block; }' +
-    '.label-r-qr-vazio { width: 27mm; height: 27mm; border: 1px dashed #999; display: flex; align-items: center; justify-content: center; font-size: 6.5pt; color: #999; text-align: center; }' +
-    '.label-r-aviso { margin-top: auto; background: #f2f2f2; border: 0.3mm solid #999; color: #000; font-size: 7.5pt; font-weight: 800; text-decoration: underline; text-transform: uppercase; text-align: center; padding: 1mm 2mm; border-radius: 1mm; line-height: 1.25; width: 100%; }' +
+    '.label-r-qr-vazio { width: 27mm; height: 27mm; border: 1px dashed #000; display: flex; align-items: center; justify-content: center; font-size: 6.5pt; color: #000; text-align: center; }' +
+    '.label-r-aviso { margin-top: auto; background: #f2f2f2; border: 0.5mm solid #000; color: #000; font-size: 7.5pt; font-weight: 800; text-decoration: underline; text-transform: uppercase; text-align: center; padding: 1mm 2mm; border-radius: 1mm; line-height: 1.25; width: 100%; }' +
     '.label-r-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }' +
-    '.label-id-box { display: inline-block; align-self: flex-start; border: 0.5mm solid #1a1a1a; border-radius: 1mm; padding: 0.8mm 2mm; font-size: 14pt; font-weight: 800; color: #1a1a1a; line-height: 1.15; }' +
+    '.label-id-box { display: inline-block; align-self: flex-start; border: 0.7mm solid #000; border-radius: 1mm; padding: 0.8mm 2mm; font-size: 14pt; font-weight: 800; color: #000; line-height: 1.15; }' +
     '.label-r-qtd { font-size: 16pt; font-weight: 800; color: #000; margin-top: 1.5mm; }' +
     '.label-r-qtd-rotulo { text-decoration: underline; }' +
     '.label-r-qtd-num { text-decoration: none; }' +
-    '.label-r-desc { font-size: 9.5pt; font-weight: 600; color: #1a1a1a; margin-top: 1.5mm; line-height: 1.25; }' +
+    '.label-r-desc { font-size: 9.5pt; font-weight: 600; color: #000; margin-top: 1.5mm; line-height: 1.25; }' +
     '.label-r-right { flex: none; width: 20mm; display: flex; flex-direction: column; align-items: center; text-align: center; }' +
-    '.label-r-item-label { font-size: 11pt; font-weight: 800; color: #1a1a1a; }' +
-    '.label-r-item-box { width: 17mm; height: 17mm; border: 0.5mm solid #1a1a1a; border-radius: 1mm; background: #fff; margin-top: 1.5mm; display: flex; align-items: center; justify-content: center; font-size: 14pt; font-weight: 800; color: #1a1a1a; }' +
+    '.label-r-item-label { font-size: 11pt; font-weight: 800; color: #000; }' +
+    '.label-r-item-box { width: 17mm; height: 17mm; border: 0.7mm solid #000; border-radius: 1mm; background: #fff; margin-top: 1.5mm; display: flex; align-items: center; justify-content: center; font-size: 14pt; font-weight: 800; color: #000; }' +
     '.label-r-pedido { margin-top: auto; }' +
-    '.label-r-pedido-rotulo { display: block; font-size: 8.5pt; font-weight: 800; color: #1a1a1a; text-decoration: underline; }' +
+    '.label-r-pedido-rotulo { display: block; font-size: 8.5pt; font-weight: 800; color: #000; text-decoration: underline; }' +
     '.label-r-pedido-num { font-size: 16pt; font-weight: 800; color: #000; margin-top: 0.5mm; }' +
     '.label-r-logo { margin-top: auto; }' +
-    '.label-logo { height: 4.5mm; display: block; }' +
+    '.label-logo { height: 6mm; display: block; filter: brightness(0); }' +
     '</style></head><body>' + labelsHtml + '</body></html>';
 
   let iframe = document.getElementById('print-iframe');
@@ -2191,16 +2191,16 @@ function imprimirViaIframe(lista, qrDataUrls) {
     '.label-top { display: flex; gap: 2mm; flex: 1; min-height: 0; }' +
     '.label-qr-wrap, .label-photo-wrap { flex: none; width: 30mm; display: flex; align-items: flex-start; justify-content: center; }' +
     '.label-qr { width: 30mm; height: 30mm; display: block; }' +
-    '.label-photo { width: 30mm; height: 30mm; display: block; object-fit: contain; border-radius: 2.5mm; border: 0.3mm solid #ddd; padding: 0.8mm; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }' +
-    '.label-qr-vazio, .label-photo-vazio { width: 30mm; height: 30mm; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 6.5pt; color: #999; border: 1px dashed #ccc; border-radius: 2.5mm; box-sizing: border-box; }' +
+    '.label-photo { width: 30mm; height: 30mm; display: block; object-fit: contain; border-radius: 2.5mm; border: 0.6mm solid #000; padding: 0.8mm; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }' +
+    '.label-qr-vazio, .label-photo-vazio { width: 30mm; height: 30mm; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 6.5pt; color: #000; border: 1px dashed #000; border-radius: 2.5mm; box-sizing: border-box; }' +
     '.label-specs { flex: 1; min-width: 0; display: flex; flex-direction: column; }' +
-    '.label-id-box { display: inline-block; align-self: flex-start; border: 0.5mm solid #1a1a1a; border-radius: 1mm; padding: 0.8mm 2mm; font-size: 14pt; font-weight: 800; color: #1a1a1a; line-height: 1.15; }' +
-    '.label-qtd-box { display: inline-block; align-self: flex-start; background: #C77D00; color: #fff; border-radius: 1mm; padding: 0.8mm 2mm; font-size: 12pt; font-weight: 800; margin-top: 1mm; }' +
+    '.label-id-box { display: inline-block; align-self: flex-start; border: 0.7mm solid #000; border-radius: 1mm; padding: 0.8mm 2mm; font-size: 14pt; font-weight: 800; color: #000; line-height: 1.15; }' +
+    '.label-qtd-box { display: inline-block; align-self: flex-start; background: #fff; border: 0.5mm solid #000; color: #000; border-radius: 1mm; padding: 0.8mm 2mm; font-size: 12pt; font-weight: 800; margin-top: 1mm; }' +
     '.label-meta-block { margin-top: 1.5mm; }' +
-    '.label-meta { font-size: 7.8pt; color: #333; font-weight: 600; margin-top: 0.8mm; line-height: 1.3; }' +
+    '.label-meta { font-size: 7.8pt; color: #000; font-weight: 600; margin-top: 0.8mm; line-height: 1.3; }' +
     '.label-bottom { display: flex; align-items: flex-end; gap: 2mm; flex: none; }' +
-    '.label-name { flex: 1; min-width: 0; font-size: 9pt; font-weight: 700; color: #1a1a1a; line-height: 1.2; max-height: 8.8mm; overflow: hidden; }' +
-    '.label-logo { height: 4.5mm; flex: none; display: block; }' +
+    '.label-name { flex: 1; min-width: 0; font-size: 9pt; font-weight: 700; color: #000; line-height: 1.2; max-height: 8.8mm; overflow: hidden; }' +
+    '.label-logo { height: 6mm; flex: none; display: block; filter: brightness(0); }' +
     '</style></head><body>' + labelsHtml + '</body></html>';
 
   // iframe escondido na PRÓPRIA aba — ao contrário de window.open(), nunca fica
