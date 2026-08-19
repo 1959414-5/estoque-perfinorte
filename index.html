@@ -30,29 +30,14 @@
 
     <!-- ===================== NOVA SOLICITAÇÃO ===================== -->
     <section id="view-nova" class="view view-active">
-      <div class="section-label">Nova solicitação</div>
+      <div class="section-label">Solicitar Chapa</div>
 
       <button type="button" id="btn-abrir-nova" class="btn-primary" onclick="abrirFormNova()">+ Nova Solicitação</button>
 
-      <form id="form-nova" class="hidden">
-
-        <div class="field">
-          <label>Seu nome</label>
-          <select id="sel-solicitante" required></select>
-        </div>
-
-        <div class="section-label" style="margin-top:22px;">Peças desta solicitação</div>
-        <div id="itens-solicitacao"></div>
-        <button type="button" class="btn-secondary btn-solto" onclick="adicionarItemSolicitacao()">+ Adicionar outra peça</button>
-
-        <div class="field" style="margin-top:20px;">
-          <label>Observação geral (opcional)</label>
-          <textarea id="inp-observacao" placeholder="Vale pra toda a solicitação..."></textarea>
-        </div>
-
-        <button type="submit" id="btn-enviar" class="btn-primary">Enviar solicitação</button>
-        <button type="button" class="btn-secondary" onclick="fecharFormNova()">Cancelar</button>
-      </form>
+      <div id="wizard-nova" class="hidden">
+        <div id="wizard-progresso" class="wizard-progresso"></div>
+        <div id="wizard-conteudo"></div>
+      </div>
     </section>
 
     <!-- ===================== PAINEL ===================== -->
@@ -79,6 +64,9 @@
           <div class="filter-chip" onclick="setFiltro('Entregue', this)">Entregue</div>
         </div>
       </div>
+
+      <button type="button" id="btn-alertas-programacao" class="hidden" onclick="alternarPainelAlertasProgramacao()">✂️ <span id="texto-alertas-programacao"></span></button>
+      <div id="painel-alertas-programacao" class="hidden"></div>
 
       <div id="lista-painel"></div>
 
