@@ -69,7 +69,6 @@ document.addEventListener('DOMContentLoaded', function () {
       CONFIG = cfg;
       montarSelectLinhaPeca();
       montarChipsLinha('picker-linha-chips', filtrarPickerPeca, 'FILTRO_LINHA_PICKER');
-      montarChipsLinha('catalogo-linha-chips', renderCatalogoLista, 'FILTRO_LINHA_CATALOGO');
     })
     .catch(function (err) {
       toast('Erro ao carregar configuração: ' + err.message);
@@ -595,9 +594,43 @@ function alternarPainelAlertas() {
   document.getElementById('painel-alertas-estoque').classList.toggle('hidden');
 }
 
-function alternarFiltroEstoqueBaixo() {
-  FILTRO_ESTOQUE_BAIXO = !FILTRO_ESTOQUE_BAIXO;
-  document.getElementById('filtro-estoque-baixo').classList.toggle('selected', FILTRO_ESTOQUE_BAIXO);
+function abrirModalFiltrosCatalogo() {
+  montarChipsLinhaCatalogoModal();
+  document.getElementById('filtro-estoque-baixo-modal').classList.toggle('selected', FILTRO_ESTOQUE_BAIXO);
+  document.getElementById('modal-filtros-catalogo').classList.remove('hidden');
+}
+
+function fecharModalFiltrosCatalogo() {
+  document.getElementById('modal-filtros-catalogo').classList.add('hidden');
+}
+
+function montarChipsLinhaCatalogoModal() {
+  const wrap = document.getElementById('catalogo-linha-chips-modal');
+  const opcoes = ['Todas'].concat(CONFIG.linhas || []);
+  wrap.innerHTML = opcoes.map(l =>
+    '<div class="filter-chip' + (l === FILTRO_LINHA_CATALOGO ? ' selected' : '') + '" data-linha="' + esc(l) + '">' + esc(l) + '</div>'
+  ).join('');
+  wrap.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      wrap.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('selected'));
+      chip.classList.add('selected');
+    });
+  });
+}
+
+function alternarEstoqueBaixoTemp(el) {
+  el.classList.toggle('selected');
+}
+
+function aplicarFiltrosCatalogo() {
+  const chipLinha = document.querySelector('#catalogo-linha-chips-modal .filter-chip.selected');
+  FILTRO_LINHA_CATALOGO = chipLinha ? chipLinha.dataset.linha : 'Todas';
+  FILTRO_ESTOQUE_BAIXO = document.getElementById('filtro-estoque-baixo-modal').classList.contains('selected');
+
+  const ativo = FILTRO_LINHA_CATALOGO !== 'Todas' || FILTRO_ESTOQUE_BAIXO;
+  document.getElementById('badge-filtros-catalogo-ativos').classList.toggle('hidden', !ativo);
+
+  fecharModalFiltrosCatalogo();
   renderCatalogoLista();
 }
 
@@ -1189,29 +1222,41 @@ function carregarSolicitacoes() {
     });
 }
 
-function alternarFiltrosPainel() {
-  document.getElementById('painel-filtros-wrap').classList.toggle('hidden');
+function abrirModalFiltrosPainel() {
+  document.querySelectorAll('#periodo-filter-row-modal .filter-chip').forEach(c =>
+    c.classList.toggle('selected', c.dataset.periodo === FILTRO_PERIODO));
+  document.querySelectorAll('#status-filter-row-modal .filter-chip').forEach(c =>
+    c.classList.toggle('selected', c.dataset.status === FILTRO_STATUS));
+  document.getElementById('modal-filtros-painel').classList.remove('hidden');
+}
+
+function fecharModalFiltrosPainel() {
+  document.getElementById('modal-filtros-painel').classList.add('hidden');
+}
+
+function selecionarPeriodoTemp(periodo, el) {
+  document.querySelectorAll('#periodo-filter-row-modal .filter-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function selecionarStatusTemp(status, el) {
+  document.querySelectorAll('#status-filter-row-modal .filter-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function aplicarFiltrosPainel() {
+  const chipPeriodo = document.querySelector('#periodo-filter-row-modal .filter-chip.selected');
+  const chipStatus = document.querySelector('#status-filter-row-modal .filter-chip.selected');
+  FILTRO_PERIODO = chipPeriodo ? chipPeriodo.dataset.periodo : 'hoje';
+  FILTRO_STATUS = chipStatus ? chipStatus.dataset.status : 'Todos';
+  atualizarBadgeFiltros();
+  fecharModalFiltrosPainel();
+  renderPainel();
 }
 
 function atualizarBadgeFiltros() {
   const ativo = FILTRO_STATUS !== 'Todos' || FILTRO_PERIODO !== 'hoje';
   document.getElementById('badge-filtros-ativos').classList.toggle('hidden', !ativo);
-}
-
-function setFiltro(status, el) {
-  FILTRO_STATUS = status;
-  document.querySelectorAll('#status-filter-row .filter-chip').forEach(c => c.classList.remove('selected'));
-  el.classList.add('selected');
-  atualizarBadgeFiltros();
-  renderPainel();
-}
-
-function setFiltroPeriodo(periodo, el) {
-  FILTRO_PERIODO = periodo;
-  document.querySelectorAll('#periodo-filter-row .filter-chip').forEach(c => c.classList.remove('selected'));
-  el.classList.add('selected');
-  atualizarBadgeFiltros();
-  renderPainel();
 }
 
 function dataDentroDoPeriodo(dataStr, periodo) {
@@ -1523,6 +1568,14 @@ function renderDetalhePedidoConteudo() {
   const pedidoPerfinorte = pd.itens.find(it => it.Pedido_Perfinorte)?.Pedido_Perfinorte || '';
   document.getElementById('inp-pedido-perfinorte').value = pedidoPerfinorte;
 
+  const pedidoNumeroWrap = document.getElementById('pedido-numero-visivel');
+  if (pedidoPerfinorte) {
+    pedidoNumeroWrap.classList.remove('hidden');
+    pedidoNumeroWrap.textContent = 'Pedido Sênior: ' + pedidoPerfinorte;
+  } else {
+    pedidoNumeroWrap.classList.add('hidden');
+  }
+
   renderAnexosPedido(pd, 'confirmacao', 'pedido-confirmacao-anexada', 'btn-ver-confirmacao', 'Ver Ordem de Produção', 'bloco-confirmacao');
   renderAnexosPedido(pd, 'localizacao', 'pedido-localizacao-anexada', 'btn-ver-localizacao', 'Ver Ordem de Carregamento', 'bloco-localizacao');
 
@@ -1577,7 +1630,7 @@ function renderItemPedidoDetalhe(it) {
   let html = '<div class="pedido-item-row">';
 
   html += '<div class="pedido-item-topo">';
-  html += '<span class="catalog-card-id">' + esc(it.ID_Peca) + '</span>';
+  html += '<span class="catalog-card-id">' + esc(it.ID_Peca) + (it.Item_Perfinorte ? ' · Item ' + esc(it.Item_Perfinorte) : '') + '</span>';
   html += '<div class="pedido-item-badges">' +
     (urgente ? '<span class="urgent-badge">Urgente</span>' : '') +
     '<span class="status-badge" data-s="' + esc(it.Status) + '">' + esc(it.Status) + '</span>' +
