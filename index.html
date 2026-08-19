@@ -285,6 +285,17 @@
   </div>
 
   <!-- ===================== MODAL: ESCANEAR QR DO PRODUTO ===================== -->
+  <!-- ===================== MODAL: ESCOLHER ENTRADA/SAÍDA ANTES DE ESCANEAR ===================== -->
+  <div id="modal-escolha-tipo-scan" class="modal-overlay hidden">
+    <div class="modal-sheet" style="position:relative;">
+      <div class="modal-handle"></div>
+      <button class="modal-close" onclick="fecharEscolhaTipoMovimentoRapido()">×</button>
+      <div class="modal-title" style="margin-bottom:16px;">O que você vai fazer?</div>
+      <button type="button" class="btn-primary" style="background:#15803D; margin-bottom:12px;" onclick="iniciarScanRapido('entrada')">+ Entrada de estoque</button>
+      <button type="button" class="btn-primary" style="background:#DC2626;" onclick="iniciarScanRapido('saida')">− Saída de estoque</button>
+    </div>
+  </div>
+
   <div id="modal-scan-qr" class="modal-overlay hidden">
     <div class="modal-sheet" style="position:relative;">
       <div class="modal-handle"></div>
@@ -434,6 +445,7 @@
     <button class="nav-btn nav-active" data-view="nova">Solicitar</button>
     <button class="nav-btn" data-view="painel">Painel</button>
     <button class="nav-btn" data-view="catalogo">Catálogo</button>
+    <button class="nav-btn nav-btn-scan" onclick="abrirEscolhaTipoMovimentoRapido()">📷</button>
   </nav>
 
   <script src="config.js"></script>
