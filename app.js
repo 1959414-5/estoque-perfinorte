@@ -1496,6 +1496,7 @@ function renderPainel() {
     const statusGeral = statusResumoPedido(pd);
     const nomes = pd.itens.slice(0, 2).map(it => esc(it.Nome_Peca)).join(', ');
     const resto = pd.itens.length > 2 ? ' + ' + (pd.itens.length - 2) : '';
+    const programadores = [...new Set(pd.itens.filter(it => it.Programado_Por).map(it => it.Programado_Por))];
     return '<div class="ticket' + (urgente ? ' is-urgent' : '') + '" data-pedido-id="' + esc(pd.pedidoId) + '">' +
       '<div class="ticket-head">' +
       '<div style="min-width:0;"><div class="ticket-title">' + esc(pd.solicitante) + '</div>' +
@@ -1506,6 +1507,7 @@ function renderPainel() {
       '</div></div>' +
       '<div class="ticket-perf"></div>' +
       '<div class="ticket-body"><span>' + nomes + resto + '</span></div>' +
+      (programadores.length ? '<div class="ticket-programado">🔧 Programado por ' + esc(programadores.join(', ')) + '</div>' : '') +
       '</div>';
   }).join('');
 
@@ -1517,7 +1519,7 @@ function renderTabelaPainel(pedidos) {
   if (!tbody) return;
 
   if (pedidos.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="tabela-painel-vazia">Sem pedidos nesse filtro.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="tabela-painel-vazia">Sem pedidos nesse filtro.</td></tr>';
     return;
   }
 
@@ -1527,11 +1529,13 @@ function renderTabelaPainel(pedidos) {
     const nomes = pd.itens.slice(0, 3).map(it => esc(it.Nome_Peca)).join(', ');
     const resto = pd.itens.length > 3 ? ' + ' + (pd.itens.length - 3) : '';
     const pedidoPerfinorte = pd.itens.find(it => it.Pedido_Perfinorte)?.Pedido_Perfinorte || '—';
+    const programadores = [...new Set(pd.itens.filter(it => it.Programado_Por).map(it => it.Programado_Por))];
     return '<tr onclick="abrirDetalhePedido(\'' + pd.pedidoId + '\')">' +
       '<td>' + esc(pd.solicitante) + (urgente ? ' <span class="urgent-badge">Urgente</span>' : '') + '</td>' +
       '<td>' + nomes + resto + '</td>' +
       '<td>' + pd.itens.length + '</td>' +
       '<td>' + esc(pedidoPerfinorte) + '</td>' +
+      '<td>' + (programadores.length ? '🔧 ' + esc(programadores.join(', ')) : '—') + '</td>' +
       '<td>' + tempoRelativo(pd.dataHora) + '</td>' +
       '<td><span class="status-badge" data-s="' + esc(statusGeral) + '">' + esc(statusGeral) + '</span></td>' +
       '</tr>';
@@ -1683,6 +1687,10 @@ function renderItemPedidoDetalhe(it) {
   html += '</div>';
 
   html += '<div class="ticket-body" style="padding:8px 0 4px;"><span>Qtd: <b>' + esc(it.Quantidade) + '</b></span></div>';
+  if (it.Programado_Por) {
+    html += '<div class="pedido-item-programado">🔧 Programado por <b>' + esc(it.Programado_Por) + '</b>' +
+      (it.Data_Programacao ? ' · ' + tempoRelativo(it.Data_Programacao) : '') + '</div>';
+  }
   if (it.Observacao) html += '<p style="font-size:13px; color:var(--ink-soft); margin:2px 0 6px;">' + esc(it.Observacao) + '</p>';
 
   if (it.Foto_URL) {
