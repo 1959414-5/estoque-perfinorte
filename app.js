@@ -2149,7 +2149,7 @@ function handleFotoQR(e) {
   e.target.value = '';
 }
 
-function buscarPecaEscaneada(codigo) {
+async function buscarPecaEscaneada(codigo) {
   codigo = String(codigo).trim();
 
   // Etiqueta de RECEBIMENTO de um item de solicitação (impressa junto com o
@@ -2163,14 +2163,32 @@ function buscarPecaEscaneada(codigo) {
     const idSolicitacao = codigo.indexOf(prefixoNovo) === 0
       ? codigo.substring(prefixoNovo.length)
       : codigo.substring(prefixoAntigo.length);
-    const item = SOLICITACOES.find(s => s.ID_Solicitacao === idSolicitacao);
-    if (!item) { document.getElementById('scan-qr-status').textContent = 'Solicitação não encontrada — tenta recarregar a página.'; return; }
+
+    // Busca SEMPRE fresco do servidor, sem usar o SOLICITACOES em cache —
+    // se uma divisão de programação aconteceu em outro aparelho/sessão
+    // (ex: a tela de Programação), o cache local não saberia disso, e
+    // deixaria escanear uma etiqueta já substituída como se fosse válida,
+    // ou mostrar estoque desatualizado. Isso é crítico demais pra confiar
+    // em cache.
+    document.getElementById('scan-qr-status').textContent = 'Verificando...';
+    let resultado;
+    try {
+      resultado = await apiComRetry('buscarSolicitacaoParaRecebimento', { idSolicitacao: idSolicitacao });
+    } catch (err) {
+      document.getElementById('scan-qr-status').textContent = 'Erro ao verificar: ' + err.message;
+      return;
+    }
+
+    if (!resultado.encontrado) {
+      document.getElementById('scan-qr-status').textContent = 'Solicitação não encontrada.';
+      return;
+    }
+    const item = resultado.item;
 
     // Se esse item foi dividido depois (programação parcial), essa etiqueta
     // antiga não vale mais — a quantidade real agora está espalhada em 2
     // etiquetas novas.
-    const temFilho = SOLICITACOES.some(s => s.ID_Pai === idSolicitacao);
-    if (temFilho) {
+    if (resultado.temFilho) {
       document.getElementById('scan-qr-status').textContent = '⚠️ Essa etiqueta foi SUBSTITUÍDA — o pedido foi dividido em novas vias. Descarte essa e use as etiquetas atualizadas.';
       return;
     }
@@ -2183,8 +2201,16 @@ function buscarPecaEscaneada(codigo) {
       quantidadeSugerida: item.Quantidade,
       contexto: 'Recebendo pedido de ' + item.Solicitante,
       observacaoSugerida: 'Recebimento — pedido de ' + item.Solicitante,
-      idSolicitacao: item.ID_Solicitacao
+      idSolicitacao: item.ID_Solicitacao,
+      estoqueAtualFresco: resultado.estoqueAtual
     });
+
+    // Atualiza também o item na lista local (se existir), pra manter o
+    // Painel coerente sem precisar recarregar a página inteira.
+    const localIdx = SOLICITACOES.findIndex(s => s.ID_Solicitacao === item.ID_Solicitacao);
+    if (localIdx !== -1) SOLICITACOES[localIdx] = Object.assign({}, SOLICITACOES[localIdx], item);
+    else SOLICITACOES.push(item);
+
     return;
   }
 
@@ -2201,6 +2227,12 @@ function abrirMovimento(idPeca, opcoes) {
   const p = CATALOGO.find(x => x.ID_Peca === idPeca);
   if (!p) { toast('Peça não encontrada'); return; }
   opcoes = opcoes || {};
+  // Se veio um estoque atual fresco (buscado na hora, sem cache), atualiza
+  // a peça no catálogo local também — evita mostrar um valor desatualizado
+  // bem na hora mais crítica, que é dar entrada de estoque.
+  if (opcoes.estoqueAtualFresco !== undefined && opcoes.estoqueAtualFresco !== null) {
+    p['Estoque_Atual'] = opcoes.estoqueAtualFresco;
+  }
   MOVIMENTO_PECA_ATUAL = p;
   MOVIMENTO_TIPO_ATUAL = 'entrada';
   MOVIMENTO_ID_SOLICITACAO_ATUAL = opcoes.idSolicitacao || null;
