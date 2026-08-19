@@ -45,24 +45,8 @@
       <div class="section-label">Painel de solicitações</div>
 
       <div class="painel-toolbar-row">
-        <button type="button" class="btn-secondary btn-solto painel-toolbar-btn" onclick="alternarFiltrosPainel()">🔍 Filtros<span id="badge-filtros-ativos" class="hidden"> ●</span></button>
+        <button type="button" class="btn-secondary btn-solto painel-toolbar-btn" onclick="abrirModalFiltrosPainel()">🔍 Filtros<span id="badge-filtros-ativos" class="hidden"> ●</span></button>
         <button type="button" id="btn-modo-admin" class="btn-secondary btn-solto painel-toolbar-btn" onclick="alternarModoAdmin()">🔒 Liberar controles</button>
-      </div>
-
-      <div id="painel-filtros-wrap" class="hidden">
-        <div class="filter-row" id="periodo-filter-row">
-          <div class="filter-chip selected" onclick="setFiltroPeriodo('hoje', this)">Hoje</div>
-          <div class="filter-chip" onclick="setFiltroPeriodo('7dias', this)">7 dias</div>
-          <div class="filter-chip" onclick="setFiltroPeriodo('30dias', this)">30 dias</div>
-          <div class="filter-chip" onclick="setFiltroPeriodo('todos', this)">Todos</div>
-        </div>
-        <div class="filter-row" id="status-filter-row">
-          <div class="filter-chip selected" onclick="setFiltro('Todos', this)">Todos</div>
-          <div class="filter-chip" onclick="setFiltro('Solicitado', this)">Solicitado</div>
-          <div class="filter-chip" onclick="setFiltro('Em produção', this)">Em produção</div>
-          <div class="filter-chip" onclick="setFiltro('Pronto', this)">Pronto</div>
-          <div class="filter-chip" onclick="setFiltro('Entregue', this)">Entregue</div>
-        </div>
       </div>
 
       <button type="button" id="btn-alertas-programacao" class="hidden" onclick="alternarPainelAlertasProgramacao()">✂️ <span id="texto-alertas-programacao"></span></button>
@@ -93,10 +77,8 @@
         <input type="text" id="inp-busca-catalogo" placeholder="Buscar peça..." class="search-box-input">
         <button type="button" class="btn-refresh-compact" id="btn-atualizar-catalogo" onclick="carregarCatalogo()" title="Atualizar">🔄</button>
       </div>
-      <div id="catalogo-linha-chips" class="filter-row"></div>
-      <div class="filter-row">
-        <div class="filter-chip" id="filtro-estoque-baixo" onclick="alternarFiltroEstoqueBaixo()">⚠️ Estoque baixo/zerado</div>
-      </div>
+      <button type="button" class="btn-secondary btn-solto" onclick="abrirModalFiltrosCatalogo()">🔍 Filtros<span id="badge-filtros-catalogo-ativos" class="hidden"> ●</span></button>
+
       <div class="catalogo-toolbar">
         <button type="button" class="btn-secondary btn-solto" style="margin:0;" onclick="abrirScanQR()">📷 Escanear QR</button>
         <button type="button" class="btn-secondary btn-solto" id="btn-imprimir-lista" style="margin:0;" onclick="imprimirEtiquetasCatalogo()">🖨️ Imprimir etiquetas desta lista</button>
@@ -132,7 +114,8 @@
       <div class="modal-handle"></div>
       <button class="modal-close" onclick="fecharDetalhePedido()">×</button>
       <div class="modal-title" id="pedido-detalhe-titulo"></div>
-      <div class="ticket-sub" id="pedido-detalhe-sub" style="margin-bottom:14px;"></div>
+      <div class="ticket-sub" id="pedido-detalhe-sub" style="margin-bottom:4px;"></div>
+      <div id="pedido-numero-visivel" class="hidden pedido-numero-visivel"></div>
 
       <div id="pedido-anexos-botoes" style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; justify-content:center;">
         <button type="button" id="btn-ver-confirmacao" class="btn-secondary btn-solto hidden" style="width:auto; margin:0;" onclick="abrirGaleriaAnexosPedido('confirmacao')">Ver Ordem de Produção</button>
@@ -329,6 +312,53 @@
   </div>
 
   <!-- ===================== MODAL: ENTRADA / SAÍDA DE ESTOQUE ===================== -->
+  <!-- ===================== MODAL: FILTROS DO PAINEL ===================== -->
+  <div id="modal-filtros-painel" class="modal-overlay hidden">
+    <div class="modal-sheet" style="position:relative;">
+      <div class="modal-handle"></div>
+      <button class="modal-close" onclick="fecharModalFiltrosPainel()">×</button>
+      <div class="modal-title">Filtros</div>
+
+      <div class="section-label" style="margin-top:16px;">Período</div>
+      <div class="filter-row filter-row-centro" id="periodo-filter-row-modal">
+        <div class="filter-chip" data-periodo="hoje" onclick="selecionarPeriodoTemp('hoje', this)">Hoje</div>
+        <div class="filter-chip" data-periodo="7dias" onclick="selecionarPeriodoTemp('7dias', this)">7 dias</div>
+        <div class="filter-chip" data-periodo="30dias" onclick="selecionarPeriodoTemp('30dias', this)">30 dias</div>
+        <div class="filter-chip" data-periodo="todos" onclick="selecionarPeriodoTemp('todos', this)">Todos</div>
+      </div>
+
+      <div class="section-label" style="margin-top:18px;">Status</div>
+      <div class="filter-row filter-row-centro" id="status-filter-row-modal">
+        <div class="filter-chip" data-status="Todos" onclick="selecionarStatusTemp('Todos', this)">Todos</div>
+        <div class="filter-chip" data-status="Solicitado" onclick="selecionarStatusTemp('Solicitado', this)">Solicitado</div>
+        <div class="filter-chip" data-status="Em produção" onclick="selecionarStatusTemp('Em produção', this)">Em produção</div>
+        <div class="filter-chip" data-status="Pronto" onclick="selecionarStatusTemp('Pronto', this)">Pronto</div>
+        <div class="filter-chip" data-status="Entregue" onclick="selecionarStatusTemp('Entregue', this)">Entregue</div>
+      </div>
+
+      <button type="button" class="btn-primary" style="margin-top:22px;" onclick="aplicarFiltrosPainel()">Aplicar filtros</button>
+    </div>
+  </div>
+
+  <!-- ===================== MODAL: FILTROS DO CATÁLOGO ===================== -->
+  <div id="modal-filtros-catalogo" class="modal-overlay hidden">
+    <div class="modal-sheet" style="position:relative;">
+      <div class="modal-handle"></div>
+      <button class="modal-close" onclick="fecharModalFiltrosCatalogo()">×</button>
+      <div class="modal-title">Filtros</div>
+
+      <div class="section-label" style="margin-top:16px;">Linha</div>
+      <div id="catalogo-linha-chips-modal" class="filter-row filter-row-centro"></div>
+
+      <div class="section-label" style="margin-top:18px;">Estoque</div>
+      <div class="filter-row filter-row-centro">
+        <div class="filter-chip" id="filtro-estoque-baixo-modal" onclick="alternarEstoqueBaixoTemp(this)">⚠️ Estoque baixo/zerado</div>
+      </div>
+
+      <button type="button" class="btn-primary" style="margin-top:22px;" onclick="aplicarFiltrosCatalogo()">Aplicar filtros</button>
+    </div>
+  </div>
+
   <div id="modal-movimento" class="modal-overlay hidden">
     <div class="modal-sheet" style="position:relative;">
       <div class="modal-handle"></div>
