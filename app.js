@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   document.querySelectorAll('.nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => trocarView(btn.dataset.view));
+    if (btn.dataset.view) btn.addEventListener('click', () => trocarView(btn.dataset.view));
   });
 
   document.getElementById('peca-foto-camera').addEventListener('change', e => handleFotoChange(e, 'peca'));
@@ -1093,6 +1093,7 @@ function telaResumoWizard() {
       (item.urgente ? '<span class="urgent-badge">Urgente</span>' : '') +
       '</div>' +
       '<div class="wizard-resumo-item-sub">ID: ' + esc(p.ID_Peca) + ' · Qtd: ' + esc(item.quantidade) + '</div>' +
+      (p.Imagem_URL ? '<img src="' + p.Imagem_URL + '" class="wizard-resumo-item-foto" onclick="abrirImagemFullscreen(\'' + p.Imagem_URL.replace(/'/g, "\\'") + '\')">' : '') +
       (item.observacao ? '<div class="wizard-resumo-item-obs">' + esc(item.observacao) + '</div>' : '') +
       '</div>';
   }).join('');
@@ -2029,6 +2030,23 @@ let SCAN_STREAM = null;
 let SCAN_RAF = null;
 let SCAN_CANVAS = null;
 let SCAN_CALLBACK = null;
+let SCAN_RAPIDO_TIPO = null; // 'entrada' ou 'saida' — só usado no atalho de câmera da barra de navegação
+
+function abrirEscolhaTipoMovimentoRapido() {
+  document.getElementById('modal-escolha-tipo-scan').classList.remove('hidden');
+}
+
+function fecharEscolhaTipoMovimentoRapido() {
+  document.getElementById('modal-escolha-tipo-scan').classList.add('hidden');
+}
+
+function iniciarScanRapido(tipo) {
+  SCAN_RAPIDO_TIPO = tipo;
+  fecharEscolhaTipoMovimentoRapido();
+  abrirScanQR(function (p) {
+    abrirMovimento(p.ID_Peca, { tipoInicial: SCAN_RAPIDO_TIPO });
+  });
+}
 
 // ---------------------------------------------------------
 // ESCANEAR QR — câmera ao vivo com fallback pra foto
@@ -2053,6 +2071,7 @@ function abrirScanQR(callback) {
 function fecharScanQR() {
   document.getElementById('modal-scan-qr').classList.add('hidden');
   pararCameraScan();
+  SCAN_RAPIDO_TIPO = null;
 }
 
 async function iniciarCameraScan() {
@@ -2199,6 +2218,9 @@ async function buscarPecaEscaneada(codigo) {
       return;
     }
     fecharScanQR();
+    if (SCAN_RAPIDO_TIPO === 'saida') {
+      toast('Essa é uma etiqueta de recebimento — só faz sentido como Entrada, ajustei sozinho.');
+    }
     abrirMovimento(item.ID_Peca, {
       quantidadeSugerida: item.Quantidade,
       contexto: 'Recebendo pedido de ' + item.Solicitante,
@@ -2236,14 +2258,14 @@ function abrirMovimento(idPeca, opcoes) {
     p['Estoque_Atual'] = opcoes.estoqueAtualFresco;
   }
   MOVIMENTO_PECA_ATUAL = p;
-  MOVIMENTO_TIPO_ATUAL = 'entrada';
+  MOVIMENTO_TIPO_ATUAL = opcoes.tipoInicial === 'saida' ? 'saida' : 'entrada';
   MOVIMENTO_ID_SOLICITACAO_ATUAL = opcoes.idSolicitacao || null;
 
   document.getElementById('movimento-id').textContent = p.Nome_Peca;
   document.getElementById('movimento-nome').textContent = p.ID_Peca + (opcoes.contexto ? ' — ' + opcoes.contexto : '');
   document.getElementById('movimento-qtd').value = opcoes.quantidadeSugerida || 1;
   document.getElementById('movimento-obs').value = opcoes.observacaoSugerida || '';
-  document.querySelectorAll('.movimento-tipo-btn').forEach(b => b.classList.toggle('selected', b.dataset.tipo === 'entrada'));
+  document.querySelectorAll('.movimento-tipo-btn').forEach(b => b.classList.toggle('selected', b.dataset.tipo === MOVIMENTO_TIPO_ATUAL));
   const btnConfirmar = document.getElementById('btn-confirmar-movimento');
   btnConfirmar.disabled = false;
   btnConfirmar.textContent = 'Confirmar';
@@ -2493,7 +2515,7 @@ function imprimirViaIframeRecebimento(lista, qrDataUrls) {
     '.label-r-desc { font-size: 9.5pt; font-weight: 600; color: #000; margin-top: 1.5mm; line-height: 1.25; }' +
     '.label-r-right { flex: none; width: 20mm; display: flex; flex-direction: column; align-items: center; text-align: center; }' +
     '.label-r-item-label { font-size: 11pt; font-weight: 800; color: #000; }' +
-    '.label-r-item-box { width: 17mm; height: 17mm; border: 0.7mm solid #000; border-radius: 1mm; background: #fff; margin-top: 1.5mm; display: flex; align-items: center; justify-content: center; font-size: 14pt; font-weight: 800; color: #000; }' +
+    '.label-r-item-box { width: 17mm; height: 17mm; border: 0.7mm solid #000; border-radius: 1mm; background: #fff; margin-top: 1.5mm; display: flex; align-items: center; justify-content: center; font-size: 20pt; font-weight: 800; color: #000; }' +
     '.label-r-pedido { margin-top: auto; }' +
     '.label-r-pedido-rotulo { display: block; font-size: 8.5pt; font-weight: 800; color: #000; text-decoration: underline; }' +
     '.label-r-pedido-num { font-size: 16pt; font-weight: 800; color: #000; margin-top: 0.5mm; }' +
@@ -2569,7 +2591,7 @@ function imprimirViaIframe(lista, qrDataUrls) {
       (p.Quantidade ? '<div class="label-qtd-box">Qtd: ' + esc(p.Quantidade) + '</div>' : '') +
       '<div class="label-meta-block">' +
       (p.MP ? '<div class="label-meta">MP: ' + esc(p.MP) + (p.Espessura ? ' de ' + esc(formatarEspessura(p.Espessura)) : '') + '</div>' : '') +
-      (dims ? '<div class="label-meta">' + dims + '</div>' : '') +
+      (dims ? '<div class="label-meta label-meta-dims">' + dims + '</div>' : '') +
       (p.Servicos ? '<div class="label-meta">Serviço: ' + esc(p.Servicos) + '</div>' : '') +
       '</div>' +
       '</div>' +
@@ -2599,6 +2621,7 @@ function imprimirViaIframe(lista, qrDataUrls) {
     '.label-qtd-box { display: inline-block; align-self: flex-start; background: #fff; border: 0.5mm solid #000; color: #000; border-radius: 1mm; padding: 0.8mm 2mm; font-size: 12pt; font-weight: 800; margin-top: 1mm; }' +
     '.label-meta-block { margin-top: 1.5mm; }' +
     '.label-meta { font-size: 7.8pt; color: #000; font-weight: 600; margin-top: 0.8mm; line-height: 1.3; }' +
+    '.label-meta-dims { font-size: 10.5pt; font-weight: 800; }' +
     '.label-bottom { display: flex; align-items: flex-end; gap: 2mm; flex: none; }' +
     '.label-name { flex: 1; min-width: 0; font-size: 9pt; font-weight: 700; color: #000; line-height: 1.2; max-height: 8.8mm; overflow: hidden; }' +
     '.label-logo { height: 6mm; flex: none; display: block; filter: brightness(0); }' +
