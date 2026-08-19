@@ -906,7 +906,7 @@ function telaQuantidadeWizard() {
     (espaco !== null ? '<div class="wizard-dica">Cabe pedir até: ' + esc(espaco) + '</div>' : '') +
     '<div class="wizard-stepper-row">' +
     '<button type="button" class="wizard-stepper-btn" onclick="ajustarQtdWizard(-1)">−</button>' +
-    '<input type="number" min="1" inputmode="numeric" id="wizard-qtd-input" value="' + WIZARD_ITEM_ATUAL.quantidade + '" class="wizard-input-grande">' +
+    '<input type="text" inputmode="numeric" pattern="[0-9]*" id="wizard-qtd-input" value="' + WIZARD_ITEM_ATUAL.quantidade + '" class="wizard-input-grande">' +
     '<button type="button" class="wizard-stepper-btn" onclick="ajustarQtdWizard(1)">+</button>' +
     '</div>' +
     '<button type="button" class="btn-primary" onclick="confirmarQuantidadeWizard()">Continuar</button>' +
@@ -1602,7 +1602,7 @@ function renderItemPedidoDetalhe(it) {
 
   if (MODO_ADMIN) {
     html += '<div style="display:flex; gap:6px; margin:6px 0;">';
-    html += '<input type="number" min="1" inputmode="numeric" value="' + it.Quantidade + '" id="qtd-item-' + it.ID_Solicitacao + '" style="flex:1; padding:8px; border:1.5px solid var(--line); border-radius:8px;" onblur="limparZerosQuantidade(this, 1)">';
+    html += '<input type="text" inputmode="numeric" pattern="[0-9]*" value="' + it.Quantidade + '" id="qtd-item-' + it.ID_Solicitacao + '" style="flex:1; padding:8px; border:1.5px solid var(--line); border-radius:8px;" onblur="limparZerosQuantidade(this, 1)">';
     html += '<button type="button" class="btn-secondary" style="width:auto; margin:0; padding:8px 12px;" onclick="salvarQtdItemPedido(\'' + it.ID_Solicitacao + '\')">Salvar qtd</button>';
     html += '</div>';
     html += '<div style="display:flex; gap:6px; margin:6px 0;">';
