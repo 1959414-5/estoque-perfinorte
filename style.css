@@ -577,6 +577,9 @@
     color: var(--ink-soft); border-top: 3px solid transparent;
   }
   .nav-btn.nav-active { color: var(--accent); border-top-color: var(--accent); }
+  .nav-btn-scan {
+    flex: 0 0 62px; font-size: 22px; color: var(--ink); background: var(--bg);
+  }
 
   /* ---------- MODAL ---------- */
   .modal-overlay {
@@ -798,6 +801,11 @@
   }
   .wizard-resumo-item-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 700; color: var(--ink); }
   .wizard-resumo-item-sub { font-size: 13px; color: var(--ink-soft); margin-top: 3px; }
+  .wizard-resumo-item-foto {
+    display: block; max-width: 100%; max-height: 130px; margin-top: 8px;
+    border-radius: 10px; border: 1.5px solid var(--line); cursor: zoom-in; object-fit: contain;
+    background: var(--bg);
+  }
   .wizard-resumo-item-obs { font-size: 13px; color: var(--ink-soft); margin-top: 5px; font-style: italic; }
   .wizard-resumo-linha { font-size: 14.5px; color: var(--ink); margin-bottom: 12px; }
   .wizard-card .btn-primary { padding: 20px; font-size: 20px; border-radius: 16px; }
