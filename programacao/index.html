@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Programação — Estoque de Peças</title>
+
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1B2431">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Programação">
+
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="programacao.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <span class="topbar-title">Programação</span>
+    <span class="topbar-sub">PERFINORTE · Plano de corte</span>
+    <img class="topbar-logo" src="../topbar-logo.png" alt="Perfinorte">
+  </header>
+
+  <main id="conteudo-programacao">
+
+    <section class="prog-secao">
+      <div class="field">
+        <label>Seu nome</label>
+        <input type="text" id="inp-programador" placeholder="Quem está programando?">
+      </div>
+    </section>
+
+    <section class="prog-secao">
+      <div class="field">
+        <label>Número do pedido (Sênior)</label>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="inp-numero-pedido" placeholder="Ex: 143543" inputmode="numeric" style="flex:1;">
+          <button type="button" class="btn-primary" style="width:auto; margin:0; padding:0 18px;" onclick="buscarPedido()">Buscar</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="prog-secao">
+      <div id="prog-resultado"></div>
+    </section>
+
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <!-- ===================== MODAL: REGISTRAR QUANTIDADE PROGRAMADA ===================== -->
+  <div id="modal-programar" class="modal-overlay hidden">
+    <div class="modal-sheet" style="position:relative;">
+      <div class="modal-handle"></div>
+      <button class="modal-close" onclick="fecharModalProgramar()">×</button>
+      <div class="modal-title" id="programar-peca-nome"></div>
+      <div class="ticket-sub" id="programar-peca-sub" style="margin-bottom:16px;"></div>
+
+      <div class="field">
+        <label>Quantos você conseguiu programar agora?</label>
+        <input type="number" min="1" inputmode="numeric" id="inp-qtd-programada" style="font-size:20px; text-align:center; padding:16px;">
+      </div>
+      <div id="programar-dica" class="prog-dica"></div>
+
+      <div class="field">
+        <label>Observação (opcional)</label>
+        <input type="text" id="inp-obs-programacao" placeholder="Opcional...">
+      </div>
+
+      <button type="button" class="btn-secondary" onclick="fecharModalProgramar()">Cancelar</button>
+      <button type="button" class="btn-primary" id="btn-confirmar-programacao" onclick="confirmarProgramacao()">Registrar</button>
+    </div>
+  </div>
+
+  <script src="../config.js"></script>
+  <script src="programacao.js"></script>
+</body>
+</html>
