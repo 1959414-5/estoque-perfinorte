@@ -1516,7 +1516,7 @@ function renderTabelaPainel(pedidos) {
   if (!tbody) return;
 
   if (pedidos.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" class="tabela-painel-vazia">Sem pedidos nesse filtro.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="tabela-painel-vazia">Sem pedidos nesse filtro.</td></tr>';
     return;
   }
 
@@ -1525,10 +1525,12 @@ function renderTabelaPainel(pedidos) {
     const statusGeral = statusResumoPedido(pd);
     const nomes = pd.itens.slice(0, 3).map(it => esc(it.Nome_Peca)).join(', ');
     const resto = pd.itens.length > 3 ? ' + ' + (pd.itens.length - 3) : '';
+    const pedidoPerfinorte = pd.itens.find(it => it.Pedido_Perfinorte)?.Pedido_Perfinorte || '—';
     return '<tr onclick="abrirDetalhePedido(\'' + pd.pedidoId + '\')">' +
       '<td>' + esc(pd.solicitante) + (urgente ? ' <span class="urgent-badge">Urgente</span>' : '') + '</td>' +
       '<td>' + nomes + resto + '</td>' +
       '<td>' + pd.itens.length + '</td>' +
+      '<td>' + esc(pedidoPerfinorte) + '</td>' +
       '<td>' + tempoRelativo(pd.dataHora) + '</td>' +
       '<td><span class="status-badge" data-s="' + esc(statusGeral) + '">' + esc(statusGeral) + '</span></td>' +
       '</tr>';
