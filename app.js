@@ -1526,7 +1526,7 @@ function renderTabelaPainel(pedidos) {
   tbody.innerHTML = pedidos.map(pd => {
     const urgente = pedidoTemUrgente(pd);
     const statusGeral = statusResumoPedido(pd);
-    const nomes = pd.itens.slice(0, 3).map(it => esc(it.Nome_Peca)).join(', ');
+    const nomes = pd.itens.slice(0, 3).map(it => esc(it.ID_Peca)).join(', ');
     const resto = pd.itens.length > 3 ? ' + ' + (pd.itens.length - 3) : '';
     const pedidoPerfinorte = pd.itens.find(it => it.Pedido_Perfinorte)?.Pedido_Perfinorte || '—';
     const programadores = [...new Set(pd.itens.filter(it => it.Programado_Por).map(it => it.Programado_Por))];
