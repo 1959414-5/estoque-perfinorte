@@ -67,7 +67,6 @@ document.addEventListener('DOMContentLoaded', function () {
   api('getConfig')
     .then(function (cfg) {
       CONFIG = cfg;
-      montarSelectSolicitantes();
       montarSelectLinhaPeca();
       montarChipsLinha('picker-linha-chips', filtrarPickerPeca, 'FILTRO_LINHA_PICKER');
       montarChipsLinha('catalogo-linha-chips', renderCatalogoLista, 'FILTRO_LINHA_CATALOGO');
@@ -121,7 +120,6 @@ document.addEventListener('DOMContentLoaded', function () {
   cropWrap.addEventListener('touchend', cropFinalizar);
   document.getElementById('peca-foto-arquivo').addEventListener('change', e => handleFotoChange(e, 'peca'));
 
-  document.getElementById('form-nova').addEventListener('submit', enviarSolicitacao);
   document.getElementById('form-peca').addEventListener('submit', salvarPecaCatalogo);
 
   document.getElementById('inp-busca-catalogo').addEventListener('input', renderCatalogoLista);
@@ -149,17 +147,6 @@ function toast(msg) {
 // ---------------------------------------------------------
 // CONFIG — selects / chips dinâmicos
 // ---------------------------------------------------------
-function montarSelectSolicitantes() {
-  const sel = document.getElementById('sel-solicitante');
-  sel.innerHTML = CONFIG.solicitantes.map(n => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('');
-  const salvo = localStorage.getItem('nomeUsuario');
-  if (salvo && CONFIG.solicitantes.indexOf(salvo) !== -1) {
-    sel.value = salvo;
-  } else {
-    sel.selectedIndex = 0; // primeiro da lista (João Paulo) como padrão
-  }
-}
-
 function montarSelectLinhaPeca() {
   const sel = document.getElementById('peca-linha');
   sel.innerHTML = CONFIG.linhas.map(l => '<option value="' + esc(l) + '">' + esc(l) + '</option>').join('');
@@ -608,24 +595,6 @@ function alternarPainelAlertas() {
   document.getElementById('painel-alertas-estoque').classList.toggle('hidden');
 }
 
-// Pré-preenche a Nova Solicitação com a peça e a quantidade sugerida — o
-// João só confere e toca em Enviar (dá pra marcar urgente ali mesmo).
-function solicitarMaisAlerta(idPeca, quantidadeSugerida) {
-  const peca = CATALOGO.find(p => p.ID_Peca === idPeca);
-  if (!peca) { toast('Peça não encontrada'); return; }
-
-  trocarView('nova');
-  abrirFormNova();
-
-  const item = novoItemVazio();
-  item.peca = peca;
-  item.quantidade = Math.max(1, quantidadeSugerida);
-  item.urgente = (calcularAlertasEstoque().find(a => a.peca.ID_Peca === idPeca) || {}).tier === 'zerado';
-  ITENS_SOLICITACAO = [item];
-  renderItensSolicitacao();
-  toast('Solicitação pré-preenchida — confira e toque em Enviar');
-}
-
 function alternarFiltroEstoqueBaixo() {
   FILTRO_ESTOQUE_BAIXO = !FILTRO_ESTOQUE_BAIXO;
   document.getElementById('filtro-estoque-baixo').classList.toggle('selected', FILTRO_ESTOQUE_BAIXO);
@@ -738,10 +707,14 @@ function handleFotoChange(e, alvo) {
 }
 
 // ---------------------------------------------------------
-// NOVA SOLICITAÇÃO — múltiplos itens, cada um com peça/qtd/urgente/fotos
+// NOVA SOLICITAÇÃO — formato de assistente, uma pergunta por vez
 // ---------------------------------------------------------
 let ITENS_SOLICITACAO = [];
 let PROXIMO_ITEM_UID = 1;
+let WIZARD_ETAPA = 'nome';
+let WIZARD_ITEM_ATUAL = null;
+let WIZARD_SOLICITANTE = '';
+let WIZARD_OBSERVACAO_GERAL = '';
 
 function novoItemVazio() {
   return { uid: 'it' + (PROXIMO_ITEM_UID++), peca: null, quantidade: 1, urgente: false, fotos: [], observacao: '' };
@@ -752,39 +725,384 @@ function acharItemSolicitacao(uid) {
 }
 
 function abrirFormNova() {
-  ITENS_SOLICITACAO = [novoItemVazio()];
-  renderItensSolicitacao();
-  document.getElementById('inp-observacao').value = '';
+  ITENS_SOLICITACAO = [];
+  WIZARD_SOLICITANTE = '';
+  WIZARD_OBSERVACAO_GERAL = '';
+  WIZARD_ITEM_ATUAL = null;
   document.getElementById('btn-abrir-nova').classList.add('hidden');
-  document.getElementById('form-nova').classList.remove('hidden');
+  document.getElementById('wizard-nova').classList.remove('hidden');
+  irParaEtapa('nome');
 }
 
 function fecharFormNova() {
-  document.getElementById('form-nova').classList.add('hidden');
+  document.getElementById('wizard-nova').classList.add('hidden');
   document.getElementById('btn-abrir-nova').classList.remove('hidden');
 }
 
-function adicionarItemSolicitacao() {
-  ITENS_SOLICITACAO.push(novoItemVazio());
-  renderItensSolicitacao();
+function cancelarWizard() {
+  if (!confirm('Cancelar essa solicitação? Nada será enviado.')) return;
+  fecharFormNova();
 }
 
-function removerItemSolicitacao(uid) {
-  if (ITENS_SOLICITACAO.length <= 1) { toast('Precisa ter pelo menos uma peça'); return; }
-  ITENS_SOLICITACAO = ITENS_SOLICITACAO.filter(it => it.uid !== uid);
-  renderItensSolicitacao();
+// Usado pelo botão "Solicitar mais" dos alertas de estoque (Catálogo) — já
+// chega com a peça e a quantidade sugerida escolhidas, só falta confirmar
+// o nome e passar pelas outras etapas normalmente.
+function solicitarMaisAlerta(idPeca, quantidadeSugerida) {
+  const peca = CATALOGO.find(p => p.ID_Peca === idPeca);
+  if (!peca) { toast('Peça não encontrada'); return; }
+
+  trocarView('nova');
+  WIZARD_OBSERVACAO_GERAL = '';
+
+  const item = novoItemVazio();
+  item.peca = peca;
+  item.quantidade = Math.max(1, quantidadeSugerida);
+  item.urgente = (calcularAlertasEstoque().find(a => a.peca.ID_Peca === idPeca) || {}).tier === 'zerado';
+  ITENS_SOLICITACAO = [item];
+  WIZARD_ITEM_ATUAL = item;
+
+  document.getElementById('btn-abrir-nova').classList.add('hidden');
+  document.getElementById('wizard-nova').classList.remove('hidden');
+  irParaEtapa('nome');
+  toast('Peça pré-selecionada — confirme seu nome pra continuar');
 }
 
-function atualizarQtdItem(uid, valor) {
-  const item = acharItemSolicitacao(uid);
-  if (item) item.quantidade = Math.max(1, Number(valor) || 1);
+// ---- navegação entre as etapas ----
+function irParaEtapa(etapa) {
+  WIZARD_ETAPA = etapa;
+  renderWizardEtapa();
 }
 
-// Trava a quantidade no Estoque Máximo cadastrado da peça (se houver) —
-// evita que o colaborador peça mais do que é permitido pra aquele item.
-// Quanto ainda cabe pedir dessa peça sem passar do Estoque Máximo (capacidade
-// total) — considera o que já tem em estoque, não só a quantidade digitada.
-// Retorna null se a peça não tem Estoque Máximo configurado (sem limite).
+function voltarWizard() {
+  const mapaVolta = {
+    'buscar-peca': function () {
+      const idx = ITENS_SOLICITACAO.indexOf(WIZARD_ITEM_ATUAL);
+      if (idx <= 0) { irParaEtapa('nome'); return; }
+      ITENS_SOLICITACAO.splice(idx, 1);
+      WIZARD_ITEM_ATUAL = ITENS_SOLICITACAO[idx - 1];
+      irParaEtapa('mais-peca');
+    },
+    'quantidade': function () { irParaEtapa('buscar-peca'); },
+    'urgente': function () { irParaEtapa('quantidade'); },
+    'fotos': function () { irParaEtapa('urgente'); },
+    'observacao-item': function () { irParaEtapa('fotos'); },
+    'mais-peca': function () { irParaEtapa('observacao-item'); },
+    'observacao-geral': function () {
+      WIZARD_ITEM_ATUAL = ITENS_SOLICITACAO[ITENS_SOLICITACAO.length - 1];
+      irParaEtapa('mais-peca');
+    },
+    'resumo': function () { irParaEtapa('observacao-geral'); },
+  };
+  if (mapaVolta[WIZARD_ETAPA]) mapaVolta[WIZARD_ETAPA]();
+}
+
+function numeroDoItemAtual() {
+  return ITENS_SOLICITACAO.indexOf(WIZARD_ITEM_ATUAL) + 1;
+}
+
+function montarProgressoWizard() {
+  const rotulos = {
+    'nome': 'Quem está solicitando',
+    'buscar-peca': 'Peça ' + numeroDoItemAtual(),
+    'quantidade': 'Peça ' + numeroDoItemAtual(),
+    'urgente': 'Peça ' + numeroDoItemAtual(),
+    'fotos': 'Peça ' + numeroDoItemAtual(),
+    'observacao-item': 'Peça ' + numeroDoItemAtual(),
+    'mais-peca': 'Peça ' + numeroDoItemAtual(),
+    'observacao-geral': 'Últimos detalhes',
+    'resumo': 'Confirmação',
+  };
+  return esc(rotulos[WIZARD_ETAPA] || '');
+}
+
+function renderWizardEtapa() {
+  document.getElementById('wizard-progresso').textContent = montarProgressoWizard();
+  const el = document.getElementById('wizard-conteudo');
+  const construtores = {
+    'nome': telaNomeWizard,
+    'buscar-peca': telaBuscarPecaWizard,
+    'quantidade': telaQuantidadeWizard,
+    'urgente': telaUrgenteWizard,
+    'fotos': telaFotosWizard,
+    'observacao-item': telaObservacaoItemWizard,
+    'mais-peca': telaMaisPecaWizard,
+    'observacao-geral': telaObservacaoGeralWizard,
+    'resumo': telaResumoWizard,
+  };
+  el.innerHTML = construtores[WIZARD_ETAPA]();
+  if (WIZARD_ETAPA === 'fotos') wireFotosInputsWizard();
+  const primeiroInput = el.querySelector('input, select, textarea');
+  if (primeiroInput && (WIZARD_ETAPA === 'quantidade' || WIZARD_ETAPA === 'observacao-item' || WIZARD_ETAPA === 'observacao-geral')) {
+    primeiroInput.focus();
+  }
+}
+
+// ---- etapa: nome ----
+function telaNomeWizard() {
+  const lista = CONFIG.solicitantes || [];
+  const salvo = localStorage.getItem('nomeUsuario');
+  const padrao = (salvo && lista.indexOf(salvo) !== -1) ? salvo : lista[0];
+  const opcoes = lista.map(n => '<option value="' + esc(n) + '"' + (n === padrao ? ' selected' : '') + '>' + esc(n) + '</option>').join('');
+  return '<div class="wizard-card">' +
+    '<div class="wizard-pergunta">Quem está solicitando?</div>' +
+    '<select id="wizard-nome-select" class="wizard-select">' + opcoes + '</select>' +
+    '<button type="button" class="btn-primary" onclick="confirmarNomeWizard()">Continuar</button>' +
+    '</div>';
+}
+
+function confirmarNomeWizard() {
+  WIZARD_SOLICITANTE = document.getElementById('wizard-nome-select').value;
+  localStorage.setItem('nomeUsuario', WIZARD_SOLICITANTE);
+  if (ITENS_SOLICITACAO.length && ITENS_SOLICITACAO[0].peca) {
+    WIZARD_ITEM_ATUAL = ITENS_SOLICITACAO[0];
+    irParaEtapa('quantidade');
+    return;
+  }
+  const item = novoItemVazio();
+  ITENS_SOLICITACAO.push(item);
+  WIZARD_ITEM_ATUAL = item;
+  irParaEtapa('buscar-peca');
+}
+
+// ---- etapa: buscar peça ----
+function telaBuscarPecaWizard() {
+  const numero = numeroDoItemAtual();
+  return '<div class="wizard-card">' +
+    (numero > 1 ? '<button type="button" class="wizard-voltar" onclick="voltarWizard()">‹ Voltar</button>' : '') +
+    '<div class="wizard-pergunta">Peça ' + numero + ' — qual peça você precisa?</div>' +
+    '<button type="button" class="btn-primary" onclick="abrirPickerWizard()">🔍 Toque para buscar a peça</button>' +
+    '<button type="button" class="btn-secondary btn-solto" onclick="abrirScanWizard()">📷 Ou escanear o QR da etiqueta</button>' +
+    '</div>';
+}
+
+function abrirPickerWizard() {
+  abrirPickerPeca(function (p) {
+    if (!aceitarPecaNoLimite(p)) return;
+    WIZARD_ITEM_ATUAL.peca = p;
+    aplicarMaximoNoItem(WIZARD_ITEM_ATUAL);
+    irParaEtapa('quantidade');
+  });
+}
+
+function abrirScanWizard() {
+  abrirScanQR(function (p) {
+    if (!aceitarPecaNoLimite(p)) return;
+    WIZARD_ITEM_ATUAL.peca = p;
+    aplicarMaximoNoItem(WIZARD_ITEM_ATUAL);
+    irParaEtapa('quantidade');
+  });
+}
+
+// ---- etapa: quantidade ----
+function telaQuantidadeWizard() {
+  const p = WIZARD_ITEM_ATUAL.peca;
+  const espaco = espacoDisponivelParaPedir(p);
+  return '<div class="wizard-card">' +
+    '<button type="button" class="wizard-voltar" onclick="voltarWizard()">‹ Voltar</button>' +
+    '<div class="wizard-pergunta">Quantidade</div>' +
+    '<div class="item-id-confirm">ID: ' + esc(p.ID_Peca) + '</div>' +
+    '<div class="wizard-peca-nome">' + esc(p.Nome_Peca) + '</div>' +
+    (p.Imagem_URL ? '<div style="text-align:center;"><img src="' + p.Imagem_URL + '" class="item-imagem-confirm" onclick="abrirImagemFullscreen(\'' + p.Imagem_URL.replace(/'/g, "\\'") + '\')"></div>' : '') +
+    (espaco !== null ? '<div class="wizard-dica">Cabe pedir até: ' + esc(espaco) + '</div>' : '') +
+    '<input type="number" min="1" inputmode="numeric" id="wizard-qtd-input" value="' + WIZARD_ITEM_ATUAL.quantidade + '" class="wizard-input-grande">' +
+    '<button type="button" class="btn-primary" onclick="confirmarQuantidadeWizard()">Continuar</button>' +
+    '</div>';
+}
+
+function confirmarQuantidadeWizard() {
+  const el = document.getElementById('wizard-qtd-input');
+  limparZerosQuantidade(el, 1);
+  validarMaximoItem(el, WIZARD_ITEM_ATUAL.uid);
+  WIZARD_ITEM_ATUAL.quantidade = Math.max(1, Number(el.value) || 1);
+  irParaEtapa('urgente');
+}
+
+// ---- etapa: urgente ----
+function telaUrgenteWizard() {
+  return '<div class="wizard-card">' +
+    '<button type="button" class="wizard-voltar" onclick="voltarWizard()">‹ Voltar</button>' +
+    '<div class="wizard-pergunta">Essa peça é urgente?</div>' +
+    '<div class="wizard-simnao">' +
+    '<button type="button" class="wizard-btn-urgente" onclick="responderUrgenteWizard(true)">🔴 Sim, urgente</button>' +
+    '<button type="button" class="btn-secondary btn-solto" onclick="responderUrgenteWizard(false)">Não</button>' +
+    '</div>' +
+    '</div>';
+}
+
+function responderUrgenteWizard(valor) {
+  WIZARD_ITEM_ATUAL.urgente = valor;
+  irParaEtapa('fotos');
+}
+
+// ---- etapa: fotos ----
+function telaFotosWizard() {
+  const fotosHtml = WIZARD_ITEM_ATUAL.fotos.map((foto, fi) =>
+    '<div class="photo-preview-item"><img src="' + foto + '">' +
+    '<button type="button" class="photo-preview-remove" onclick="removerFotoWizard(' + fi + ')">×</button></div>'
+  ).join('');
+  return '<div class="wizard-card">' +
+    '<button type="button" class="wizard-voltar" onclick="voltarWizard()">‹ Voltar</button>' +
+    '<div class="wizard-pergunta">Fotos desta peça (opcional)</div>' +
+    '<div class="photo-buttons-row">' +
+    '<div class="photo-input"><input type="file" accept="image/*" capture="environment" id="wizard-foto-camera"> 📷 Tirar foto</div>' +
+    '<div class="photo-input"><input type="file" accept="image/*" multiple id="wizard-foto-arquivo"> 🖼️ Escolher arquivo(s)</div>' +
+    '</div>' +
+    (fotosHtml ? '<div class="photos-preview-row">' + fotosHtml + '</div>' : '') +
+    '<button type="button" class="btn-primary" onclick="irParaEtapa(\'observacao-item\')">Continuar</button>' +
+    '</div>';
+}
+
+function wireFotosInputsWizard() {
+  const handler = function (e) {
+    const files = Array.from(e.target.files || []);
+    let restantes = files.length;
+    if (!restantes) return;
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = function (ev) {
+        redimensionarBase64(ev.target.result, 1600, function (reduzida) {
+          WIZARD_ITEM_ATUAL.fotos.push(reduzida);
+          restantes--;
+          if (restantes === 0) renderWizardEtapa();
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+  const cam = document.getElementById('wizard-foto-camera');
+  const arq = document.getElementById('wizard-foto-arquivo');
+  if (cam) cam.addEventListener('change', handler);
+  if (arq) arq.addEventListener('change', handler);
+}
+
+function removerFotoWizard(idx) {
+  WIZARD_ITEM_ATUAL.fotos.splice(idx, 1);
+  renderWizardEtapa();
+}
+
+// ---- etapa: observação do item ----
+function telaObservacaoItemWizard() {
+  return '<div class="wizard-card">' +
+    '<button type="button" class="wizard-voltar" onclick="voltarWizard()">‹ Voltar</button>' +
+    '<div class="wizard-pergunta">Observação desta peça (opcional)</div>' +
+    '<textarea id="wizard-obs-item" placeholder="Opcional...">' + esc(WIZARD_ITEM_ATUAL.observacao) + '</textarea>' +
+    '<button type="button" class="btn-primary" onclick="confirmarObsItemWizard()">Continuar</button>' +
+    '</div>';
+}
+
+function confirmarObsItemWizard() {
+  WIZARD_ITEM_ATUAL.observacao = document.getElementById('wizard-obs-item').value.trim();
+  irParaEtapa('mais-peca');
+}
+
+// ---- etapa: mais peça? ----
+function telaMaisPecaWizard() {
+  return '<div class="wizard-card">' +
+    '<button type="button" class="wizard-voltar" onclick="voltarWizard()">‹ Voltar</button>' +
+    '<div class="wizard-pergunta">Quer adicionar outra peça?</div>' +
+    '<div class="wizard-simnao">' +
+    '<button type="button" class="btn-primary" onclick="responderMaisPecaWizard(true)">+ Sim, adicionar outra</button>' +
+    '<button type="button" class="btn-secondary btn-solto" onclick="responderMaisPecaWizard(false)">Não, continuar</button>' +
+    '</div>' +
+    '</div>';
+}
+
+function responderMaisPecaWizard(sim) {
+  if (sim) {
+    const item = novoItemVazio();
+    ITENS_SOLICITACAO.push(item);
+    WIZARD_ITEM_ATUAL = item;
+    irParaEtapa('buscar-peca');
+  } else {
+    irParaEtapa('observacao-geral');
+  }
+}
+
+// ---- etapa: observação geral ----
+function telaObservacaoGeralWizard() {
+  return '<div class="wizard-card">' +
+    '<button type="button" class="wizard-voltar" onclick="voltarWizard()">‹ Voltar</button>' +
+    '<div class="wizard-pergunta">Observação geral (opcional)</div>' +
+    '<div class="wizard-dica">Vale pra solicitação inteira, não só pra uma peça</div>' +
+    '<textarea id="wizard-obs-geral" placeholder="Opcional...">' + esc(WIZARD_OBSERVACAO_GERAL) + '</textarea>' +
+    '<button type="button" class="btn-primary" onclick="confirmarObsGeralWizard()">Continuar</button>' +
+    '</div>';
+}
+
+function confirmarObsGeralWizard() {
+  WIZARD_OBSERVACAO_GERAL = document.getElementById('wizard-obs-geral').value.trim();
+  irParaEtapa('resumo');
+}
+
+// ---- etapa: resumo final ----
+function telaResumoWizard() {
+  const itensHtml = ITENS_SOLICITACAO.map((item, idx) => {
+    const p = item.peca;
+    return '<div class="wizard-resumo-item">' +
+      '<div class="wizard-resumo-item-head">' +
+      '<span>' + (idx + 1) + '. ' + esc(p.Nome_Peca) + '</span>' +
+      (item.urgente ? '<span class="urgent-badge">Urgente</span>' : '') +
+      '</div>' +
+      '<div class="wizard-resumo-item-sub">ID: ' + esc(p.ID_Peca) + ' · Qtd: ' + esc(item.quantidade) + '</div>' +
+      (item.observacao ? '<div class="wizard-resumo-item-obs">' + esc(item.observacao) + '</div>' : '') +
+      '</div>';
+  }).join('');
+
+  return '<div class="wizard-card">' +
+    '<button type="button" class="wizard-voltar" onclick="voltarWizard()">‹ Voltar</button>' +
+    '<div class="wizard-pergunta">Confira sua solicitação</div>' +
+    '<div class="wizard-resumo-linha"><b>Solicitante:</b> ' + esc(WIZARD_SOLICITANTE) + '</div>' +
+    itensHtml +
+    (WIZARD_OBSERVACAO_GERAL ? '<div class="wizard-resumo-linha"><b>Observação geral:</b> ' + esc(WIZARD_OBSERVACAO_GERAL) + '</div>' : '') +
+    '<button type="button" class="btn-primary" id="wizard-btn-enviar" onclick="enviarSolicitacao()">Enviar solicitação</button>' +
+    '<button type="button" class="btn-secondary" onclick="cancelarWizard()">Cancelar</button>' +
+    '</div>';
+}
+
+async function enviarSolicitacao() {
+  for (const item of ITENS_SOLICITACAO) {
+    if (!item.peca) { toast('Selecione a peça em todas as linhas'); return; }
+    if (!item.quantidade || item.quantidade <= 0) { toast('Quantidade inválida em alguma peça'); return; }
+    const espaco = espacoDisponivelParaPedir(item.peca);
+    if (espaco !== null && item.quantidade > espaco) {
+      toast('"' + item.peca.Nome_Peca + '": pedindo ' + item.quantidade + ', mas só cabem mais ' + espaco + ' sem passar do estoque máximo (' + item.peca.Estoque_Maximo + ').');
+      return;
+    }
+  }
+
+  const pedidoId = 'PED' + Date.now();
+  const btn = document.getElementById('wizard-btn-enviar');
+  btn.disabled = true;
+
+  try {
+    for (let i = 0; i < ITENS_SOLICITACAO.length; i++) {
+      const item = ITENS_SOLICITACAO[i];
+      btn.innerHTML = '<span class="spinner"></span> Enviando ' + (i + 1) + '/' + ITENS_SOLICITACAO.length + '...';
+      const obsCombinada = [WIZARD_OBSERVACAO_GERAL, item.observacao].filter(Boolean).join(' | ');
+      await api('salvarSolicitacao', {
+        dados: {
+          pedidoId: pedidoId,
+          solicitante: WIZARD_SOLICITANTE,
+          idPeca: item.peca.ID_Peca,
+          nomePeca: item.peca.Nome_Peca,
+          quantidade: item.quantidade,
+          observacao: obsCombinada,
+          urgente: item.urgente,
+          fotos: item.fotos
+        }
+      });
+    }
+    toast('Solicitação enviada! (' + ITENS_SOLICITACAO.length + (ITENS_SOLICITACAO.length > 1 ? ' peças)' : ' peça)'));
+    fecharFormNova();
+    trocarView('painel');
+  } catch (err) {
+    toast('Erro ao enviar: ' + err.message);
+    btn.disabled = false;
+    btn.textContent = 'Enviar solicitação';
+  }
+}
+
+// ---- validação de Estoque Máximo (capacidade) ----
 function espacoDisponivelParaPedir(peca) {
   if (!peca) return null;
   const max = Number(peca.Estoque_Maximo);
@@ -797,7 +1115,7 @@ function validarMaximoItem(el, uid) {
   const item = acharItemSolicitacao(uid);
   if (!item || !item.peca) return;
   const espaco = espacoDisponivelParaPedir(item.peca);
-  if (espaco === null) return; // sem máximo configurado, não limita
+  if (espaco === null) return;
   const atual = Number(el.value) || 1;
   if (atual > espaco) {
     el.value = Math.max(1, espaco);
@@ -807,38 +1125,6 @@ function validarMaximoItem(el, uid) {
       toast('Só é possível pedir mais ' + espaco + ' de "' + item.peca.Nome_Peca + '" — estoque atual (' + (item.peca['Estoque_Atual'] || 0) + ') + isso já bate no máximo (' + item.peca.Estoque_Maximo + ').');
     }
   }
-}
-
-function atualizarUrgenteItem(uid, valor) {
-  const item = acharItemSolicitacao(uid);
-  if (item) item.urgente = valor;
-}
-
-function atualizarObsItem(uid, valor) {
-  const item = acharItemSolicitacao(uid);
-  if (item) item.observacao = valor;
-}
-
-function abrirPickerParaItem(uid) {
-  abrirPickerPeca(function (p) {
-    const item = acharItemSolicitacao(uid);
-    if (!item) return;
-    if (!aceitarPecaNoLimite(p)) return;
-    item.peca = p;
-    aplicarMaximoNoItem(item);
-    renderItensSolicitacao();
-  });
-}
-
-function abrirScanParaItem(uid) {
-  abrirScanQR(function (p) {
-    const item = acharItemSolicitacao(uid);
-    if (!item) return;
-    if (!aceitarPecaNoLimite(p)) return;
-    item.peca = p;
-    aplicarMaximoNoItem(item);
-    renderItensSolicitacao();
-  });
 }
 
 // Se a peça já está no estoque máximo (ou acima), barra a seleção e explica
@@ -867,163 +1153,6 @@ function aplicarMaximoNoItem(item) {
   }
 }
 
-function removerFotoItem(uid, idx) {
-  const item = acharItemSolicitacao(uid);
-  if (item) { item.fotos.splice(idx, 1); renderItensSolicitacao(); }
-}
-
-function renderItensSolicitacao() {
-  const wrap = document.getElementById('itens-solicitacao');
-  wrap.innerHTML = ITENS_SOLICITACAO.map((item, idx) => renderItemSolicitacaoCard(item, idx)).join('');
-}
-
-function renderItemSolicitacaoCard(item, idx) {
-  const p = item.peca;
-  const pickerIcon = p ? (p.Imagem_URL ? '<img src="' + p.Imagem_URL + '">' : '▭') : '🔍';
-  const subInfo = p ? esc((p.MP || '') + (p.Espessura ? ' · ' + formatarEspessura(p.Espessura) : '') + (p.Linha ? ' · ' + p.Linha : '')) : '';
-
-  const fotosHtml = item.fotos.map((foto, fi) =>
-    '<div class="photo-preview-item"><img src="' + foto + '">' +
-    '<button type="button" class="photo-preview-remove" onclick="removerFotoItem(\'' + item.uid + '\',' + fi + ')">×</button></div>'
-  ).join('');
-
-  return '<div class="item-card">' +
-    '<div class="item-card-head">' +
-    '<span class="item-card-titulo">Peça ' + (idx + 1) + '</span>' +
-    (ITENS_SOLICITACAO.length > 1 ? '<button type="button" class="item-remove-btn" onclick="removerItemSolicitacao(\'' + item.uid + '\')">🗑 remover</button>' : '') +
-    '</div>' +
-
-    '<div class="field">' +
-    '<div class="item-picker-row">' +
-    '<button type="button" class="peca-picker-btn' + (p ? ' filled' : '') + '" onclick="abrirPickerParaItem(\'' + item.uid + '\')">' +
-    '<span class="peca-picker-btn-icon">' + pickerIcon + '</span>' +
-    '<span class="peca-picker-btn-text">' +
-    (p
-      ? '<span class="item-id-confirm">ID: ' + esc(p.ID_Peca) + '</span><span class="peca-picker-btn-title">' + esc(p.Nome_Peca) + '</span><br><span class="peca-picker-btn-sub">' + subInfo + '</span>'
-      : '<span class="peca-picker-btn-placeholder">Toque para buscar a peça</span>') +
-    '</span>' +
-    '<span class="peca-picker-chevron">›</span>' +
-    '</button>' +
-    '<button type="button" class="item-scan-btn" onclick="abrirScanParaItem(\'' + item.uid + '\')" title="Escanear QR">📷</button>' +
-    '</div>' +
-    '</div>' +
-
-    (p && p.Imagem_URL
-      ? '<div class="field item-imagem-confirm-wrap"><img src="' + p.Imagem_URL + '" class="item-imagem-confirm" onclick="abrirImagemFullscreen(\'' + p.Imagem_URL.replace(/'/g, "\\'") + '\')"></div>'
-      : '') +
-
-    '<div class="field">' +
-    '<label>Quantidade' + (p && espacoDisponivelParaPedir(p) !== null ? ' <span style="font-weight:400; color:var(--ink-soft);">(cabe pedir até: ' + esc(espacoDisponivelParaPedir(p)) + ')</span>' : '') + '</label>' +
-    '<input type="number" min="1" inputmode="numeric" value="' + item.quantidade + '" oninput="atualizarQtdItem(\'' + item.uid + '\', this.value)" onblur="limparZerosQuantidade(this, 1); validarMaximoItem(this, \'' + item.uid + '\'); atualizarQtdItem(\'' + item.uid + '\', this.value)">' +
-    '</div>' +
-
-    '<div class="field">' +
-    '<label class="urgent-label">' +
-    '<input type="checkbox" ' + (item.urgente ? 'checked' : '') + ' onchange="atualizarUrgenteItem(\'' + item.uid + '\', this.checked)">' +
-    '<span class="urgent-box">🔴 Marcar como urgente</span>' +
-    '</label>' +
-    '</div>' +
-
-    '<div class="field">' +
-    '<label>Fotos desta peça (opcional)</label>' +
-    '<div class="photo-buttons-row">' +
-    '<div class="photo-input"><input type="file" accept="image/*" capture="environment" class="item-foto-input" data-uid="' + item.uid + '"> 📷 Tirar foto</div>' +
-    '<div class="photo-input"><input type="file" accept="image/*" multiple class="item-foto-input" data-uid="' + item.uid + '"> 🖼️ Escolher arquivo(s)</div>' +
-    '</div>' +
-    '<div class="photos-preview-row">' + fotosHtml + '</div>' +
-    '</div>' +
-
-    '<div class="field">' +
-    '<label>Observação desta peça (opcional)</label>' +
-    '<input type="text" value="' + esc(item.observacao) + '" placeholder="Opcional..." oninput="atualizarObsItem(\'' + item.uid + '\', this.value)">' +
-    '</div>' +
-    '</div>';
-}
-
-// Delegação de evento: os inputs de foto são recriados a cada render,
-// então escuta no container fixo em vez de em cada input individualmente.
-document.addEventListener('DOMContentLoaded', function () {
-  document.getElementById('itens-solicitacao').addEventListener('change', function (e) {
-    if (!e.target.classList.contains('item-foto-input')) return;
-    const uid = e.target.dataset.uid;
-    const item = acharItemSolicitacao(uid);
-    if (!item) return;
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-    let restantes = files.length;
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = function (ev) {
-        redimensionarBase64(ev.target.result, 1600, function (reduzida) {
-          item.fotos.push(reduzida);
-          restantes--;
-          if (restantes === 0) renderItensSolicitacao();
-        });
-      };
-      reader.readAsDataURL(file);
-    });
-    e.target.value = '';
-  });
-
-  ITENS_SOLICITACAO = [novoItemVazio()];
-  renderItensSolicitacao();
-});
-
-async function enviarSolicitacao(e) {
-  e.preventDefault();
-  const solicitante = document.getElementById('sel-solicitante').value;
-  if (!solicitante) { toast('Selecione seu nome'); return; }
-
-  for (const item of ITENS_SOLICITACAO) {
-    if (!item.peca) { toast('Selecione a peça em todas as linhas'); return; }
-    if (!item.quantidade || item.quantidade <= 0) { toast('Quantidade inválida em alguma peça'); return; }
-    const espaco = espacoDisponivelParaPedir(item.peca);
-    if (espaco !== null && item.quantidade > espaco) {
-      toast('"' + item.peca.Nome_Peca + '": pedindo ' + item.quantidade + ', mas só cabem mais ' + espaco + ' sem passar do estoque máximo (' + item.peca.Estoque_Maximo + ').');
-      return;
-    }
-  }
-
-  localStorage.setItem('nomeUsuario', solicitante);
-  const observacao = document.getElementById('inp-observacao').value.trim();
-  const pedidoId = 'PED' + Date.now();
-
-  const btn = document.getElementById('btn-enviar');
-  btn.disabled = true;
-
-  try {
-    for (let i = 0; i < ITENS_SOLICITACAO.length; i++) {
-      const item = ITENS_SOLICITACAO[i];
-      btn.innerHTML = '<span class="spinner"></span> Enviando ' + (i + 1) + '/' + ITENS_SOLICITACAO.length + '...';
-      const obsCombinada = [observacao, item.observacao].filter(Boolean).join(' | ');
-      await api('salvarSolicitacao', {
-        dados: {
-          pedidoId: pedidoId,
-          solicitante: solicitante,
-          idPeca: item.peca.ID_Peca,
-          nomePeca: item.peca.Nome_Peca,
-          quantidade: item.quantidade,
-          observacao: obsCombinada,
-          urgente: item.urgente,
-          fotos: item.fotos
-        }
-      });
-    }
-    toast('Solicitação enviada! (' + ITENS_SOLICITACAO.length + (ITENS_SOLICITACAO.length > 1 ? ' peças)' : ' peça)'));
-    document.getElementById('inp-observacao').value = '';
-    ITENS_SOLICITACAO = [novoItemVazio()];
-    renderItensSolicitacao();
-    document.getElementById('sel-solicitante').value = solicitante;
-    fecharFormNova();
-    btn.disabled = false;
-    btn.textContent = 'Enviar solicitação';
-    trocarView('painel');
-  } catch (err) {
-    toast('Erro ao enviar: ' + err.message);
-    btn.disabled = false;
-    btn.textContent = 'Enviar solicitação';
-  }
-}
 
 // ---------------------------------------------------------
 // PAINEL — agrupado por PEDIDO (vários itens juntos)
@@ -1040,6 +1169,7 @@ function carregarSolicitacoes() {
     .then(function (lista) {
       SOLICITACOES = lista || [];
       renderPainel();
+      renderAlertasProgramacao();
     })
     .catch(function (err) {
       document.getElementById('lista-painel').innerHTML =
@@ -1096,6 +1226,7 @@ function alternarModoAdmin() {
     toast('Modo Bárbara desativado');
     atualizarBotaoModoAdmin();
     renderPainel();
+    renderAlertasProgramacao();
     return;
   }
   const pin = prompt('Digite o PIN pra liberar os controles de status:');
@@ -1112,6 +1243,7 @@ function alternarModoAdmin() {
       }
       atualizarBotaoModoAdmin();
       renderPainel();
+      renderAlertasProgramacao();
     })
     .catch(function (err) { toast('Não consegui verificar o PIN (tentei 3x): ' + err.message); });
 }
@@ -1125,8 +1257,14 @@ function atualizarBotaoModoAdmin() {
 
 // ---- Agrupamento por pedido ----
 function agruparPedidos(lista) {
+  // Itens que já foram divididos (têm filhos de uma programação parcial)
+  // não entram na listagem normal — quem representa a realidade atual são
+  // os filhos deles. O pai fica só de registro histórico.
+  const idsComFilho = new Set(lista.filter(s => s.ID_Pai).map(s => s.ID_Pai));
+  const listaAtiva = lista.filter(s => !idsComFilho.has(s.ID_Solicitacao));
+
   const mapa = {};
-  lista.forEach(s => {
+  listaAtiva.forEach(s => {
     const pid = s.ID_Pedido || s.ID_Solicitacao; // registros antigos sem ID_Pedido caem sozinhos
     if (!mapa[pid]) mapa[pid] = { pedidoId: pid, solicitante: s.Solicitante, dataHora: s.Data_Hora, itens: [] };
     mapa[pid].itens.push(s);
@@ -1146,6 +1284,91 @@ function statusResumoPedido(pedido) {
 
 function pedidoTemUrgente(pedido) {
   return pedido.itens.some(it => it.Urgente === true);
+}
+
+// ---------------------------------------------------------
+// ALERTAS DE PROGRAMAÇÃO PARCIAL — quando um programador informa que só
+// conseguiu programar parte do que foi pedido, o item se divide em 2 (o que
+// foi programado + o que ainda falta), e essa divisão precisa virar 2
+// etiquetas novas — a antiga não vale mais.
+// ---------------------------------------------------------
+function calcularAlertasProgramacao() {
+  const grupos = {};
+  SOLICITACOES.forEach(s => {
+    if (!s.ID_Pai || s.Alerta_Visto === true) return;
+    if (!grupos[s.ID_Pai]) grupos[s.ID_Pai] = [];
+    grupos[s.ID_Pai].push(s);
+  });
+  return Object.keys(grupos).map(idOriginal => ({ idOriginal: idOriginal, filhos: grupos[idOriginal] }));
+}
+
+function renderAlertasProgramacao() {
+  const btn = document.getElementById('btn-alertas-programacao');
+  const painel = document.getElementById('painel-alertas-programacao');
+  if (!btn || !painel) return;
+
+  if (!MODO_ADMIN) {
+    btn.classList.add('hidden');
+    painel.classList.add('hidden');
+    return;
+  }
+
+  const alertas = calcularAlertasProgramacao();
+  if (!alertas.length) {
+    btn.classList.add('hidden');
+    painel.classList.add('hidden');
+    painel.innerHTML = '';
+    return;
+  }
+
+  btn.classList.remove('hidden');
+  document.getElementById('texto-alertas-programacao').textContent =
+    alertas.length + ' pedido' + (alertas.length > 1 ? 's foram divididos' : ' foi dividido') + ' na programação — toque pra ver';
+
+  painel.innerHTML = alertas.map(a => {
+    const filhos = a.filhos.slice().sort((x, y) => Number(y.Quantidade) - Number(x.Quantidade));
+    const partes = filhos.map(f => f.Quantidade).join(' + ');
+    const nomePeca = filhos[0] ? filhos[0].Nome_Peca : '';
+    const pedido = filhos[0] ? filhos[0].Pedido_Perfinorte : '';
+    return '<div class="alerta-prog-card">' +
+      '<div class="alerta-prog-info">' +
+      '<div class="alerta-prog-nome">' + esc(nomePeca) + '</div>' +
+      '<div class="alerta-prog-msg">Pedido ' + esc(pedido) + ' — dividido em ' + esc(partes) + '. A etiqueta antiga não vale mais.</div>' +
+      '</div>' +
+      '<button type="button" class="alerta-prog-btn" onclick="imprimirEReconhecerDivisao(\'' + esc(a.idOriginal) + '\')">🖨️ Imprimir as 2 vias</button>' +
+      '</div>';
+  }).join('');
+}
+
+function alternarPainelAlertasProgramacao() {
+  document.getElementById('painel-alertas-programacao').classList.toggle('hidden');
+}
+
+function imprimirEReconhecerDivisao(idOriginal) {
+  if (!exigirModoAdmin()) return;
+  const filhos = SOLICITACOES.filter(s => s.ID_Pai === idOriginal);
+  if (!filhos.length) { toast('Itens não encontrados'); return; }
+
+  const lista = filhos.map(function (item) {
+    const peca = CATALOGO.find(p => p.ID_Peca === item.ID_Peca) || {};
+    return Object.assign({}, peca, {
+      ID_Peca: item.ID_Peca,
+      Nome_Peca: item.Nome_Peca,
+      Quantidade: item.Quantidade,
+      Pedido_Perfinorte: item.Pedido_Perfinorte || '',
+      Item_Perfinorte: item.Item_Perfinorte || '',
+      __qrTexto: 'S:' + item.ID_Solicitacao
+    });
+  });
+
+  montarEImprimirEtiquetas(lista, true);
+
+  api('marcarAlertaProgramacaoVisto', { idOriginal: idOriginal })
+    .then(function () {
+      filhos.forEach(f => { f.Alerta_Visto = true; });
+      renderAlertasProgramacao();
+    })
+    .catch(function (err) { toast('As etiquetas foram impressas, mas não consegui marcar o alerta como visto: ' + err.message); });
 }
 
 function renderPainel() {
@@ -1837,6 +2060,16 @@ function buscarPecaEscaneada(codigo) {
       : codigo.substring(prefixoAntigo.length);
     const item = SOLICITACOES.find(s => s.ID_Solicitacao === idSolicitacao);
     if (!item) { document.getElementById('scan-qr-status').textContent = 'Solicitação não encontrada — tenta recarregar a página.'; return; }
+
+    // Se esse item foi dividido depois (programação parcial), essa etiqueta
+    // antiga não vale mais — a quantidade real agora está espalhada em 2
+    // etiquetas novas.
+    const temFilho = SOLICITACOES.some(s => s.ID_Pai === idSolicitacao);
+    if (temFilho) {
+      document.getElementById('scan-qr-status').textContent = '⚠️ Essa etiqueta foi SUBSTITUÍDA — o pedido foi dividido em novas vias. Descarte essa e use as etiquetas atualizadas.';
+      return;
+    }
+
     if (item.Status === 'Entregue' && !confirm('Esse item já foi marcado como recebido antes. Registrar a entrada de novo mesmo assim?')) {
       return;
     }
