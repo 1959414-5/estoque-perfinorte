@@ -777,8 +777,8 @@ function voltarWizard() {
   const mapaVolta = {
     'buscar-peca': function () {
       const idx = ITENS_SOLICITACAO.indexOf(WIZARD_ITEM_ATUAL);
+      if (idx !== -1) ITENS_SOLICITACAO.splice(idx, 1);
       if (idx <= 0) { irParaEtapa('nome'); return; }
-      ITENS_SOLICITACAO.splice(idx, 1);
       WIZARD_ITEM_ATUAL = ITENS_SOLICITACAO[idx - 1];
       irParaEtapa('mais-peca');
     },
@@ -868,7 +868,7 @@ function confirmarNomeWizard() {
 function telaBuscarPecaWizard() {
   const numero = numeroDoItemAtual();
   return '<div class="wizard-card">' +
-    (numero > 1 ? '<button type="button" class="wizard-voltar" onclick="voltarWizard()">‹ Voltar</button>' : '') +
+    '<button type="button" class="wizard-voltar" onclick="voltarWizard()">‹ Voltar</button>' +
     '<div class="wizard-pergunta">Peça ' + numero + ' — qual peça você precisa?</div>' +
     '<button type="button" class="btn-primary" onclick="abrirPickerWizard()">🔍 Toque para buscar a peça</button>' +
     '<button type="button" class="btn-secondary btn-solto" onclick="abrirScanWizard()">📷 Ou escanear o QR da etiqueta</button>' +
@@ -904,9 +904,20 @@ function telaQuantidadeWizard() {
     '<div class="wizard-peca-nome">' + esc(p.Nome_Peca) + '</div>' +
     (p.Imagem_URL ? '<div style="text-align:center;"><img src="' + p.Imagem_URL + '" class="item-imagem-confirm" onclick="abrirImagemFullscreen(\'' + p.Imagem_URL.replace(/'/g, "\\'") + '\')"></div>' : '') +
     (espaco !== null ? '<div class="wizard-dica">Cabe pedir até: ' + esc(espaco) + '</div>' : '') +
+    '<div class="wizard-stepper-row">' +
+    '<button type="button" class="wizard-stepper-btn" onclick="ajustarQtdWizard(-1)">−</button>' +
     '<input type="number" min="1" inputmode="numeric" id="wizard-qtd-input" value="' + WIZARD_ITEM_ATUAL.quantidade + '" class="wizard-input-grande">' +
+    '<button type="button" class="wizard-stepper-btn" onclick="ajustarQtdWizard(1)">+</button>' +
+    '</div>' +
     '<button type="button" class="btn-primary" onclick="confirmarQuantidadeWizard()">Continuar</button>' +
     '</div>';
+}
+
+function ajustarQtdWizard(delta) {
+  const el = document.getElementById('wizard-qtd-input');
+  const atual = Math.max(1, Number(el.value) || 1);
+  el.value = Math.max(1, atual + delta);
+  validarMaximoItem(el, WIZARD_ITEM_ATUAL.uid);
 }
 
 function confirmarQuantidadeWizard() {
@@ -1564,14 +1575,18 @@ function renderItemPedidoDetalhe(it) {
   const thumbUrl = pecaThumbPorId(it.ID_Peca);
 
   let html = '<div class="pedido-item-row">';
+
+  html += '<div class="pedido-item-topo">';
+  html += '<span class="catalog-card-id">' + esc(it.ID_Peca) + '</span>';
+  html += '<div class="pedido-item-badges">' +
+    (urgente ? '<span class="urgent-badge">Urgente</span>' : '') +
+    '<span class="status-badge" data-s="' + esc(it.Status) + '">' + esc(it.Status) + '</span>' +
+    '</div>';
+  html += '</div>';
+
   html += '<div class="pedido-item-head">';
   html += thumbHtml(thumbUrl, 'thumb');
-  html += '<div style="flex:1; min-width:0;">';
-  html += '<div class="catalog-card-id" style="margin-bottom:2px;">' + esc(it.ID_Peca) + '</div>';
-  html += '<div style="font-weight:700; font-size:14px;">' + esc(it.Nome_Peca) + '</div>';
-  html += '</div>';
-  html += (urgente ? '<span class="urgent-badge">Urgente</span>' : '') +
-    '<span class="status-badge" data-s="' + esc(it.Status) + '">' + esc(it.Status) + '</span>';
+  html += '<div class="pedido-item-nome">' + esc(it.Nome_Peca) + '</div>';
   html += '</div>';
 
   html += '<div class="ticket-body" style="padding:8px 0 4px;"><span>Qtd: <b>' + esc(it.Quantidade) + '</b></span></div>';
