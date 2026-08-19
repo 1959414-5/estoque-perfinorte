@@ -51,11 +51,11 @@ let PECA_IMAGEM_URL_ATUAL = '';   // url já existente da peça (se editando)
 let PECA_IMAGEM_ETIQUETA_URL_ATUAL = '';   // url já existente da imagem de etiqueta (se editando)
 let MODO_PECA_ORIGEM = 'catalogo'; // 'catalogo' | 'solicitacao' — de onde abriu o form de peça
 
-let FILTRO_STATUS = 'Todos';
-let FILTRO_PERIODO = 'hoje';
+let FILTRO_STATUS = localStorage.getItem('filtroStatus') || 'Todos';
+let FILTRO_PERIODO = localStorage.getItem('filtroPeriodo') || 'hoje';
 let FILTRO_LINHA_PICKER = 'Todas';
-let FILTRO_LINHA_CATALOGO = 'Todas';
-let FILTRO_ESTOQUE_BAIXO = false;
+let FILTRO_LINHA_CATALOGO = localStorage.getItem('filtroLinhaCatalogo') || 'Todas';
+let FILTRO_ESTOQUE_BAIXO = localStorage.getItem('filtroEstoqueBaixo') === 'true';
 let MOVIMENTO_PECA_ATUAL = null;
 let MOVIMENTO_TIPO_ATUAL = 'entrada';
 let MOVIMENTO_ID_SOLICITACAO_ATUAL = null;
@@ -78,6 +78,9 @@ document.addEventListener('DOMContentLoaded', function () {
   carregarCatalogo();
   carregarSolicitacoes();
   atualizarBotaoModoAdmin();
+  atualizarBadgeFiltros();
+  document.getElementById('badge-filtros-catalogo-ativos').classList.toggle('hidden',
+    !(FILTRO_LINHA_CATALOGO !== 'Todas' || FILTRO_ESTOQUE_BAIXO));
 
   // Atualiza o catálogo sozinho a cada 45s, mas só se a aba Catálogo estiver
   // aberta na hora — sem gastar chamada à toa enquanto a pessoa está em
@@ -626,6 +629,8 @@ function aplicarFiltrosCatalogo() {
   const chipLinha = document.querySelector('#catalogo-linha-chips-modal .filter-chip.selected');
   FILTRO_LINHA_CATALOGO = chipLinha ? chipLinha.dataset.linha : 'Todas';
   FILTRO_ESTOQUE_BAIXO = document.getElementById('filtro-estoque-baixo-modal').classList.contains('selected');
+  localStorage.setItem('filtroLinhaCatalogo', FILTRO_LINHA_CATALOGO);
+  localStorage.setItem('filtroEstoqueBaixo', String(FILTRO_ESTOQUE_BAIXO));
 
   const ativo = FILTRO_LINHA_CATALOGO !== 'Todas' || FILTRO_ESTOQUE_BAIXO;
   document.getElementById('badge-filtros-catalogo-ativos').classList.toggle('hidden', !ativo);
@@ -1249,6 +1254,8 @@ function aplicarFiltrosPainel() {
   const chipStatus = document.querySelector('#status-filter-row-modal .filter-chip.selected');
   FILTRO_PERIODO = chipPeriodo ? chipPeriodo.dataset.periodo : 'hoje';
   FILTRO_STATUS = chipStatus ? chipStatus.dataset.status : 'Todos';
+  localStorage.setItem('filtroPeriodo', FILTRO_PERIODO);
+  localStorage.setItem('filtroStatus', FILTRO_STATUS);
   atualizarBadgeFiltros();
   fecharModalFiltrosPainel();
   renderPainel();
@@ -1350,12 +1357,20 @@ function pedidoTemUrgente(pedido) {
 // ---------------------------------------------------------
 function calcularAlertasProgramacao() {
   const grupos = {};
+  const totais = [];
   SOLICITACOES.forEach(s => {
-    if (!s.ID_Pai || s.Alerta_Visto === true) return;
-    if (!grupos[s.ID_Pai]) grupos[s.ID_Pai] = [];
-    grupos[s.ID_Pai].push(s);
+    if (s.Alerta_Visto === true) return;
+    if (s.ID_Pai) {
+      if (!grupos[s.ID_Pai]) grupos[s.ID_Pai] = [];
+      grupos[s.ID_Pai].push(s);
+      return;
+    }
+    if (s.Totalmente_Programado === true) {
+      totais.push({ tipo: 'total', idSolicitacao: s.ID_Solicitacao, item: s });
+    }
   });
-  return Object.keys(grupos).map(idOriginal => ({ idOriginal: idOriginal, filhos: grupos[idOriginal] }));
+  const divididos = Object.keys(grupos).map(idOriginal => ({ tipo: 'dividido', idOriginal: idOriginal, filhos: grupos[idOriginal] }));
+  return divididos.concat(totais);
 }
 
 function renderAlertasProgramacao() {
@@ -1379,19 +1394,29 @@ function renderAlertasProgramacao() {
 
   btn.classList.remove('hidden');
   document.getElementById('texto-alertas-programacao').textContent =
-    alertas.length + ' pedido' + (alertas.length > 1 ? 's foram divididos' : ' foi dividido') + ' na programação — toque pra ver';
+    alertas.length + ' alerta' + (alertas.length > 1 ? 's' : '') + ' de programação — toque pra ver';
 
   painel.innerHTML = alertas.map(a => {
-    const filhos = a.filhos.slice().sort((x, y) => Number(y.Quantidade) - Number(x.Quantidade));
-    const partes = filhos.map(f => f.Quantidade).join(' + ');
-    const nomePeca = filhos[0] ? filhos[0].Nome_Peca : '';
-    const pedido = filhos[0] ? filhos[0].Pedido_Perfinorte : '';
-    return '<div class="alerta-prog-card">' +
+    if (a.tipo === 'dividido') {
+      const filhos = a.filhos.slice().sort((x, y) => Number(y.Quantidade) - Number(x.Quantidade));
+      const partes = filhos.map(f => f.Quantidade).join(' + ');
+      const nomePeca = filhos[0] ? filhos[0].Nome_Peca : '';
+      const pedido = filhos[0] ? filhos[0].Pedido_Perfinorte : '';
+      return '<div class="alerta-prog-card">' +
+        '<div class="alerta-prog-info">' +
+        '<div class="alerta-prog-nome">' + esc(nomePeca) + '</div>' +
+        '<div class="alerta-prog-msg">Pedido ' + esc(pedido) + ' — dividido em ' + esc(partes) + '. A etiqueta antiga não vale mais.</div>' +
+        '</div>' +
+        '<button type="button" class="alerta-prog-btn" onclick="imprimirEReconhecerDivisao(\'' + esc(a.idOriginal) + '\')">🖨️ Imprimir as 2 vias</button>' +
+        '</div>';
+    }
+    const it = a.item;
+    return '<div class="alerta-prog-card alerta-prog-total">' +
       '<div class="alerta-prog-info">' +
-      '<div class="alerta-prog-nome">' + esc(nomePeca) + '</div>' +
-      '<div class="alerta-prog-msg">Pedido ' + esc(pedido) + ' — dividido em ' + esc(partes) + '. A etiqueta antiga não vale mais.</div>' +
+      '<div class="alerta-prog-nome">' + esc(it.Nome_Peca) + '</div>' +
+      '<div class="alerta-prog-msg">Pedido ' + esc(it.Pedido_Perfinorte) + ' — programado por completo (' + esc(it.Quantidade) + '). Não precisa reimprimir nada.</div>' +
       '</div>' +
-      '<button type="button" class="alerta-prog-btn" onclick="imprimirEReconhecerDivisao(\'' + esc(a.idOriginal) + '\')">🖨️ Imprimir as 2 vias</button>' +
+      '<button type="button" class="alerta-prog-btn alerta-prog-btn-ok" onclick="reconhecerTotalProgramado(\'' + esc(a.idSolicitacao) + '\')">✅ OK, marcar como visto</button>' +
       '</div>';
   }).join('');
 }
@@ -1425,6 +1450,18 @@ function imprimirEReconhecerDivisao(idOriginal) {
       renderAlertasProgramacao();
     })
     .catch(function (err) { toast('As etiquetas foram impressas, mas não consegui marcar o alerta como visto: ' + err.message); });
+}
+
+function reconhecerTotalProgramado(idSolicitacao) {
+  if (!exigirModoAdmin()) return;
+  api('marcarAlertaTotalProgramadoVisto', { idSolicitacao: idSolicitacao })
+    .then(function () {
+      const it = SOLICITACOES.find(s => s.ID_Solicitacao === idSolicitacao);
+      if (it) it.Alerta_Visto = true;
+      toast('Marcado como visto');
+      renderAlertasProgramacao();
+    })
+    .catch(function (err) { toast('Erro: ' + err.message); });
 }
 
 function renderPainel() {
