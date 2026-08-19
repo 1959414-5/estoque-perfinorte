@@ -419,6 +419,7 @@
     display: flex; flex-wrap: wrap; gap: 8px;
     margin-bottom: 14px;
   }
+  .filter-row-centro { justify-content: center; }
   .filter-chip {
     flex: none;
     padding: 10px 16px;
@@ -429,7 +430,7 @@
     white-space: nowrap;
   }
   .filter-chip.selected { background: var(--ink); border-color: var(--ink); color: #fff; }
-  #filtro-estoque-baixo.selected { background: #C77D00; border-color: #C77D00; color: #fff; }
+  #filtro-estoque-baixo-modal.selected { background: #C77D00; border-color: #C77D00; color: #fff; }
 
   /* ---------- TICKET CARD (assinatura visual: etiqueta perfurada) ---------- */
   .ticket {
@@ -809,6 +810,12 @@
     display: inline-block; font-family: var(--font-mono); font-weight: 700; font-size: 11.5px;
     background: var(--bg); color: var(--ink); padding: 2px 7px; border-radius: 5px;
     margin-bottom: 3px;
+  }
+
+  .pedido-numero-visivel {
+    display: inline-block; font-family: var(--font-mono); font-weight: 700; font-size: 12.5px;
+    color: var(--ink); background: var(--bg); padding: 4px 10px; border-radius: 6px;
+    margin-bottom: 14px;
   }
 
   /* ---------- PAINEL: detalhe do pedido (vários itens) ---------- */
