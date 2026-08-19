@@ -550,6 +550,8 @@
     flex: none; padding: 9px 14px; border-radius: 8px; border: none;
     background: #1D4ED8; color: #fff; font-weight: 700; font-size: 13px;
   }
+  .alerta-prog-card.alerta-prog-total { border-color: #BBF7D0; background: #F0FDF4; }
+  .alerta-prog-btn-ok { background: #15803D; }
 
   .fab {
     display: none;
