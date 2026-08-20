@@ -833,7 +833,7 @@
   }
 
   /* ---------- PAINEL: detalhe do pedido (vários itens) ---------- */
-  #btn-modo-admin.ativo { background: #15803D; border-color: #15803D; color: #fff; }
+  #btn-modo-admin.ativo { background: #15803D; border-color: #15803D; color: #212121; }
   #pedido-admin-actions { margin-bottom: 16px; }
   .pedido-item-row {
     border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px;
