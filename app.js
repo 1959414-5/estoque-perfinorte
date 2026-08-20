@@ -549,8 +549,10 @@ function calcularAlertasEstoque() {
     else if (atual <= minimo + 3) tier = 'atencao';
     if (!tier) return;
 
+    // Sem Estoque Máximo cadastrado, o alvo mais direto é completar até o
+    // mínimo — nada de inventar multiplicador. Com Estoque Máximo, usa ele.
     const espaco = espacoDisponivelParaPedir(p); // null se sem Estoque Máximo
-    const alvo = espaco !== null ? Number(p['Estoque_Maximo']) : minimo * 2;
+    const alvo = espaco !== null ? Number(p['Estoque_Maximo']) : minimo;
     let sugerida = Math.max(1, alvo - atual);
     if (espaco !== null) sugerida = Math.min(sugerida, espaco);
 
