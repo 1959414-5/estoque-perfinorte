@@ -1284,12 +1284,12 @@ function pecaThumbPorId(idPeca) {
   return p ? p.Imagem_URL : null;
 }
 
-// ---- Modo Bárbara (PIN) ----
+// ---- Modo ADM (PIN) ----
 function alternarModoAdmin() {
   if (MODO_ADMIN) {
     MODO_ADMIN = false;
     localStorage.removeItem('modoAdmin');
-    toast('Modo Bárbara desativado');
+    toast('Modo ADM desativado');
     atualizarBotaoModoAdmin();
     renderPainel();
     renderAlertasProgramacao();
@@ -1303,7 +1303,7 @@ function alternarModoAdmin() {
       if (ok) {
         MODO_ADMIN = true;
         localStorage.setItem('modoAdmin', 'true');
-        toast('Modo Bárbara ativado');
+        toast('Modo ADM ativado');
       } else {
         toast('PIN incorreto');
       }
@@ -1317,7 +1317,7 @@ function alternarModoAdmin() {
 function atualizarBotaoModoAdmin() {
   const btn = document.getElementById('btn-modo-admin');
   if (!btn) return;
-  btn.textContent = MODO_ADMIN ? '🔓 Modo Bárbara ativo' : '🔒 Liberar controles';
+  btn.textContent = MODO_ADMIN ? '🔓 Modo ADM ativo' : '🔒 Liberar controles';
   btn.classList.toggle('ativo', MODO_ADMIN);
 }
 
@@ -1641,7 +1641,7 @@ function renderAnexosPedido(pd, tipo, idContainer, idBotao, textoBotao, idBlocoU
   btn.textContent = textoBotao;
 
   // A área de baixo (miniaturas com "x" pra remover) é só de gerenciamento,
-  // então só faz sentido pro Modo Bárbara — já fica dentro do bloco admin.
+  // então só faz sentido pro Modo ADM — já fica dentro do bloco admin.
   const wrap = document.getElementById(idContainer);
   wrap.classList.toggle('hidden', !temAnexo);
   wrap.innerHTML = temAnexo
@@ -1662,7 +1662,7 @@ function renderAnexosPedido(pd, tipo, idContainer, idBotao, textoBotao, idBlocoU
     });
   }
 
-  // A área de UPLOAD (só no Modo Bárbara) só faz sentido mostrar se ainda não
+  // A área de UPLOAD (só no Modo ADM) só faz sentido mostrar se ainda não
   // tem nada anexado desse tipo — depois que já tem, some sozinha; se remover
   // tudo, ela volta a aparecer automaticamente.
   const blocoUpload = document.getElementById(idBlocoUpload);
