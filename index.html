@@ -37,6 +37,7 @@
       <div id="wizard-nova" class="hidden">
         <div id="wizard-progresso" class="wizard-progresso"></div>
         <div id="wizard-conteudo"></div>
+        <button type="button" class="wizard-cancelar" onclick="cancelarWizard()">Cancelar solicitação</button>
       </div>
     </section>
 
@@ -45,6 +46,7 @@
       <div class="section-label">Painel de solicitações</div>
 
       <div class="painel-toolbar-row">
+        <button type="button" class="btn-refresh-compact" id="btn-atualizar-painel" onclick="carregarSolicitacoes()" title="Atualizar">🔄</button>
         <button type="button" class="btn-secondary btn-solto painel-toolbar-btn" onclick="abrirModalFiltrosPainel()">🔍 Filtros<span id="badge-filtros-ativos" class="hidden"> ●</span></button>
         <button type="button" id="btn-modo-admin" class="btn-secondary btn-solto painel-toolbar-btn" onclick="alternarModoAdmin()">🔒 Liberar controles</button>
       </div>
@@ -446,7 +448,7 @@
     <button class="nav-btn nav-active" data-view="nova">Solicitar</button>
     <button class="nav-btn" data-view="painel">Painel</button>
     <button class="nav-btn" data-view="catalogo">Catálogo</button>
-    <button class="nav-btn nav-btn-scan" onclick="abrirEscolhaTipoMovimentoRapido()">📷</button>
+    <button class="nav-btn nav-btn-scan" onclick="iniciarScanRapido('entrada')">📷</button>
   </nav>
 
   <script src="config.js"></script>
