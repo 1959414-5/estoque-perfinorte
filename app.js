@@ -917,8 +917,8 @@ function telaBuscarPecaWizard() {
   return '<div class="wizard-card">' +
     '<button type="button" class="wizard-voltar" onclick="voltarWizard()">‹ Voltar</button>' +
     '<div class="wizard-pergunta">Peça ' + numero + ' — qual peça você precisa?</div>' +
-    '<button type="button" class="btn-primary" onclick="abrirPickerWizard()">🔍 Toque para buscar a peça</button>' +
-    '<button type="button" class="btn-secondary btn-solto" onclick="abrirScanWizard()">📷 Ou escanear o QR da etiqueta</button>' +
+    '<button type="button" class="btn-primary" onclick="abrirPickerWizard()">🔍 Buscar a peça</button>' +
+    '<button type="button" class="btn-secondary btn-solto" onclick="abrirScanWizard()">📷 Escanear o QR da etiqueta</button>' +
     '</div>';
 }
 
