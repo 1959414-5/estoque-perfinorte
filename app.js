@@ -27,14 +27,14 @@ async function api(acao, params) {
 // folga de alguns segundos logo depois que o código é editado/republicado —
 // isso resolve sozinho na 2ª ou 3ª tentativa quase sempre.
 async function apiComRetry(acao, params, tentativas) {
-  tentativas = tentativas || 3;
+  tentativas = tentativas || 4;
   let ultimoErro;
   for (let i = 0; i < tentativas; i++) {
     try {
       return await api(acao, params);
     } catch (e) {
       ultimoErro = e;
-      if (i < tentativas - 1) await new Promise(r => setTimeout(r, 700 * (i + 1)));
+      if (i < tentativas - 1) await new Promise(r => setTimeout(r, 900 * (i + 1)));
     }
   }
   throw ultimoErro;
@@ -178,7 +178,7 @@ function carregarCatalogo(silencioso) {
   const btn = document.getElementById('btn-atualizar-catalogo');
   if (btn) btn.disabled = true;
 
-  apiComRetry('getCatalogo')
+  apiComRetry('getCatalogo', {}, 5)
     .then(function (lista) {
       CATALOGO = lista || [];
       renderCatalogoLista();
@@ -189,12 +189,13 @@ function carregarCatalogo(silencioso) {
       }
     })
     .catch(function (err) {
-      // Depois de 3 tentativas ainda falhou — se for atualização automática
+      // Depois de 5 tentativas ainda falhou — se for atualização automática
       // em segundo plano, não assusta ninguém com toast; só tenta de novo no
       // próximo ciclo. Se for ação manual (clicou em algo), aí sim avisa.
       if (!CATALOGO.length) {
         document.getElementById('lista-catalogo').innerHTML =
-          '<div class="empty-state"><div class="big">Erro ao carregar</div>' + esc(err.message) + '</div>';
+          '<div class="empty-state"><div class="big">Erro ao carregar</div>' + esc(err.message) +
+          '<br><button type="button" class="btn-secondary" style="margin-top:14px; width:auto; padding:10px 20px;" onclick="carregarCatalogo()">🔄 Tentar de novo</button></div>';
       }
       if (!silencioso) toast('Erro ao carregar catálogo: ' + err.message);
     })
@@ -1217,7 +1218,7 @@ let MODO_ADMIN = localStorage.getItem('modoAdmin') === 'true';
 function carregarSolicitacoes() {
   // Busca tudo (sem filtrar por status no servidor) — o filtro por status
   // agora é aplicado no nível do PEDIDO depois de agrupar os itens.
-  api('getSolicitacoes', {})
+  apiComRetry('getSolicitacoes', {}, 5)
     .then(function (lista) {
       SOLICITACOES = lista || [];
       renderPainel();
@@ -1225,7 +1226,8 @@ function carregarSolicitacoes() {
     })
     .catch(function (err) {
       document.getElementById('lista-painel').innerHTML =
-        '<div class="empty-state"><div class="big">Erro ao carregar</div>' + esc(err.message) + '</div>';
+        '<div class="empty-state"><div class="big">Erro ao carregar</div>' + esc(err.message) +
+        '<br><button type="button" class="btn-secondary" style="margin-top:14px; width:auto; padding:10px 20px;" onclick="carregarSolicitacoes()">🔄 Tentar de novo</button></div>';
       toast('Erro ao carregar painel: ' + err.message);
     });
 }
@@ -1284,12 +1286,12 @@ function pecaThumbPorId(idPeca) {
   return p ? p.Imagem_URL : null;
 }
 
-// ---- Modo ADM (PIN) ----
+// ---- Modo Bárbara (PIN) ----
 function alternarModoAdmin() {
   if (MODO_ADMIN) {
     MODO_ADMIN = false;
     localStorage.removeItem('modoAdmin');
-    toast('Modo ADM desativado');
+    toast('Modo Bárbara desativado');
     atualizarBotaoModoAdmin();
     renderPainel();
     renderAlertasProgramacao();
@@ -1303,7 +1305,7 @@ function alternarModoAdmin() {
       if (ok) {
         MODO_ADMIN = true;
         localStorage.setItem('modoAdmin', 'true');
-        toast('Modo ADM ativado');
+        toast('Modo Bárbara ativado');
       } else {
         toast('PIN incorreto');
       }
@@ -1317,7 +1319,7 @@ function alternarModoAdmin() {
 function atualizarBotaoModoAdmin() {
   const btn = document.getElementById('btn-modo-admin');
   if (!btn) return;
-  btn.textContent = MODO_ADMIN ? '🔓 Modo ADM ativo' : '🔒 Liberar controles';
+  btn.textContent = MODO_ADMIN ? '🔓 Modo Bárbara ativo' : '🔒 Liberar controles';
   btn.classList.toggle('ativo', MODO_ADMIN);
 }
 
@@ -1641,7 +1643,7 @@ function renderAnexosPedido(pd, tipo, idContainer, idBotao, textoBotao, idBlocoU
   btn.textContent = textoBotao;
 
   // A área de baixo (miniaturas com "x" pra remover) é só de gerenciamento,
-  // então só faz sentido pro Modo ADM — já fica dentro do bloco admin.
+  // então só faz sentido pro Modo Bárbara — já fica dentro do bloco admin.
   const wrap = document.getElementById(idContainer);
   wrap.classList.toggle('hidden', !temAnexo);
   wrap.innerHTML = temAnexo
@@ -1662,7 +1664,7 @@ function renderAnexosPedido(pd, tipo, idContainer, idBotao, textoBotao, idBlocoU
     });
   }
 
-  // A área de UPLOAD (só no Modo ADM) só faz sentido mostrar se ainda não
+  // A área de UPLOAD (só no Modo Bárbara) só faz sentido mostrar se ainda não
   // tem nada anexado desse tipo — depois que já tem, some sozinha; se remover
   // tudo, ela volta a aparecer automaticamente.
   const blocoUpload = document.getElementById(idBlocoUpload);
