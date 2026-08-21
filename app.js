@@ -43,6 +43,7 @@ async function apiComRetry(acao, params, tentativas) {
 
 let CONFIG = { status: [], linhas: [], solicitantes: [] };
 let CATALOGO = [];
+let CATALOGO_CARREGADO = false; // false = ainda não terminou a 1ª carga (evita mostrar "não encontrada" sendo que só está carregando)
 let SOLICITACOES = [];
 
 let PECA_IMAGEM_BASE64 = null;    // nova foto anexada no form de peça (se trocou)
@@ -181,6 +182,7 @@ function carregarCatalogo(silencioso) {
   apiComRetry('getCatalogo', {}, 5)
     .then(function (lista) {
       CATALOGO = lista || [];
+      CATALOGO_CARREGADO = true;
       renderCatalogoLista();
       renderPainelAlertas();
       if (CATALOGO.length === 0) rodarDiagnosticoCatalogo();
@@ -341,7 +343,11 @@ function filtrarPickerPeca() {
 
   wrap.innerHTML = '';
   if (filtradas.length === 0) {
-    wrap.innerHTML = '<div class="empty-state">Nenhuma peça encontrada.</div>';
+    if (!CATALOGO_CARREGADO) {
+      wrap.innerHTML = '<div class="empty-state">⏳ Carregando peças... só um instante.</div>';
+    } else {
+      wrap.innerHTML = '<div class="empty-state">Nenhuma peça encontrada.</div>';
+    }
     return;
   }
   filtradas.slice(0, 60).forEach(p => {
