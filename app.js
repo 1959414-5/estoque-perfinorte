@@ -92,6 +92,14 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }, 45000);
 
+  // Mesma lógica pro Painel — atualiza sozinho e silencioso, sem interromper
+  // ninguém com toast, só quando essa aba está mesmo aberta na tela.
+  setInterval(function () {
+    if (document.getElementById('view-painel').classList.contains('view-active') && document.visibilityState === 'visible') {
+      carregarSolicitacoes(true);
+    }
+  }, 45000);
+
   const abaSalva = localStorage.getItem('abaAtual');
   if (abaSalva && document.getElementById('view-' + abaSalva)) {
     trocarView(abaSalva);
@@ -917,8 +925,8 @@ function telaBuscarPecaWizard() {
   return '<div class="wizard-card">' +
     '<button type="button" class="wizard-voltar" onclick="voltarWizard()">‹ Voltar</button>' +
     '<div class="wizard-pergunta">Peça ' + numero + ' — qual peça você precisa?</div>' +
-    '<button type="button" class="btn-primary" onclick="abrirPickerWizard()">🔍 Buscar a peça</button>' +
-    '<button type="button" class="btn-secondary btn-solto" onclick="abrirScanWizard()">📷 Escanear o QR da etiqueta</button>' +
+    '<button type="button" class="btn-primary" onclick="abrirPickerWizard()">🔍 Toque para buscar a peça</button>' +
+    '<button type="button" class="btn-secondary btn-solto" onclick="abrirScanWizard()">📷 Ou escanear o QR da etiqueta</button>' +
     '</div>';
 }
 
@@ -1114,7 +1122,6 @@ function telaResumoWizard() {
     itensHtml +
     (WIZARD_OBSERVACAO_GERAL ? '<div class="wizard-resumo-linha"><b>Observação geral:</b> ' + esc(WIZARD_OBSERVACAO_GERAL) + '</div>' : '') +
     '<button type="button" class="btn-primary" id="wizard-btn-enviar" onclick="enviarSolicitacao()">Enviar solicitação</button>' +
-    '<button type="button" class="btn-secondary" onclick="cancelarWizard()">Cancelar</button>' +
     '</div>';
 }
 
@@ -1221,7 +1228,10 @@ let PEDIDOS_CACHE = [];
 let PEDIDO_DETALHE_ATUAL = null;
 let MODO_ADMIN = localStorage.getItem('modoAdmin') === 'true';
 
-function carregarSolicitacoes() {
+function carregarSolicitacoes(silencioso) {
+  const btn = document.getElementById('btn-atualizar-painel');
+  if (btn) btn.disabled = true;
+
   // Busca tudo (sem filtrar por status no servidor) — o filtro por status
   // agora é aplicado no nível do PEDIDO depois de agrupar os itens.
   apiComRetry('getSolicitacoes', {}, 5)
@@ -1231,11 +1241,14 @@ function carregarSolicitacoes() {
       renderAlertasProgramacao();
     })
     .catch(function (err) {
-      document.getElementById('lista-painel').innerHTML =
-        '<div class="empty-state"><div class="big">Erro ao carregar</div>' + esc(err.message) +
-        '<br><button type="button" class="btn-secondary" style="margin-top:14px; width:auto; padding:10px 20px;" onclick="carregarSolicitacoes()">🔄 Tentar de novo</button></div>';
-      toast('Erro ao carregar painel: ' + err.message);
-    });
+      if (!SOLICITACOES.length) {
+        document.getElementById('lista-painel').innerHTML =
+          '<div class="empty-state"><div class="big">Erro ao carregar</div>' + esc(err.message) +
+          '<br><button type="button" class="btn-secondary" style="margin-top:14px; width:auto; padding:10px 20px;" onclick="carregarSolicitacoes()">🔄 Tentar de novo</button></div>';
+      }
+      if (!silencioso) toast('Erro ao carregar painel: ' + err.message);
+    })
+    .finally(function () { if (btn) btn.disabled = false; });
 }
 
 function abrirModalFiltrosPainel() {
@@ -1292,12 +1305,12 @@ function pecaThumbPorId(idPeca) {
   return p ? p.Imagem_URL : null;
 }
 
-// ---- Modo Bárbara (PIN) ----
+// ---- Modo ADM (PIN) ----
 function alternarModoAdmin() {
   if (MODO_ADMIN) {
     MODO_ADMIN = false;
     localStorage.removeItem('modoAdmin');
-    toast('Modo Bárbara desativado');
+    toast('Modo ADM desativado');
     atualizarBotaoModoAdmin();
     renderPainel();
     renderAlertasProgramacao();
@@ -1311,7 +1324,7 @@ function alternarModoAdmin() {
       if (ok) {
         MODO_ADMIN = true;
         localStorage.setItem('modoAdmin', 'true');
-        toast('Modo Bárbara ativado');
+        toast('Modo ADM ativado');
       } else {
         toast('PIN incorreto');
       }
@@ -1325,7 +1338,7 @@ function alternarModoAdmin() {
 function atualizarBotaoModoAdmin() {
   const btn = document.getElementById('btn-modo-admin');
   if (!btn) return;
-  btn.textContent = MODO_ADMIN ? '🔓 Modo Bárbara ativo' : '🔒 Liberar controles';
+  btn.textContent = MODO_ADMIN ? '🔓 Modo ADM ativo' : '🔒 Liberar controles';
   btn.classList.toggle('ativo', MODO_ADMIN);
 }
 
@@ -1649,7 +1662,7 @@ function renderAnexosPedido(pd, tipo, idContainer, idBotao, textoBotao, idBlocoU
   btn.textContent = textoBotao;
 
   // A área de baixo (miniaturas com "x" pra remover) é só de gerenciamento,
-  // então só faz sentido pro Modo Bárbara — já fica dentro do bloco admin.
+  // então só faz sentido pro Modo ADM — já fica dentro do bloco admin.
   const wrap = document.getElementById(idContainer);
   wrap.classList.toggle('hidden', !temAnexo);
   wrap.innerHTML = temAnexo
@@ -1670,7 +1683,7 @@ function renderAnexosPedido(pd, tipo, idContainer, idBotao, textoBotao, idBlocoU
     });
   }
 
-  // A área de UPLOAD (só no Modo Bárbara) só faz sentido mostrar se ainda não
+  // A área de UPLOAD (só no Modo ADM) só faz sentido mostrar se ainda não
   // tem nada anexado desse tipo — depois que já tem, some sozinha; se remover
   // tudo, ela volta a aparecer automaticamente.
   const blocoUpload = document.getElementById(idBlocoUpload);
@@ -1712,21 +1725,31 @@ function renderItemPedidoDetalhe(it) {
   }
 
   if (MODO_ADMIN) {
-    html += '<div style="display:flex; gap:6px; margin:6px 0;">';
-    html += '<input type="text" inputmode="numeric" pattern="[0-9]*" value="' + it.Quantidade + '" id="qtd-item-' + it.ID_Solicitacao + '" style="flex:1; padding:8px; border:1.5px solid var(--line); border-radius:8px;" onblur="limparZerosQuantidade(this, 1)">';
-    html += '<button type="button" class="btn-secondary" style="width:auto; margin:0; padding:8px 12px;" onclick="salvarQtdItemPedido(\'' + it.ID_Solicitacao + '\')">Salvar qtd</button>';
+    html += '<div class="pedido-item-admin">';
+    html += '<div class="pedido-item-admin-row">';
+    html += '<div class="pedido-item-admin-field">';
+    html += '<label>Qtd</label>';
+    html += '<div class="pedido-item-admin-inline">';
+    html += '<input type="text" inputmode="numeric" pattern="[0-9]*" value="' + it.Quantidade + '" id="qtd-item-' + it.ID_Solicitacao + '" onblur="limparZerosQuantidade(this, 1)">';
+    html += '<button type="button" onclick="salvarQtdItemPedido(\'' + it.ID_Solicitacao + '\')">✓</button>';
+    html += '</div></div>';
+    html += '<div class="pedido-item-admin-field">';
+    html += '<label>Nº item Sênior</label>';
+    html += '<div class="pedido-item-admin-inline">';
+    html += '<input type="text" placeholder="—" value="' + esc(it.Item_Perfinorte || '') + '" id="item-perfinorte-' + it.ID_Solicitacao + '">';
+    html += '<button type="button" onclick="salvarItemPerfinorteUI(\'' + it.ID_Solicitacao + '\')">✓</button>';
+    html += '</div></div>';
     html += '</div>';
-    html += '<div style="display:flex; gap:6px; margin:6px 0;">';
-    html += '<input type="text" placeholder="Nº do item na Sênior" value="' + esc(it.Item_Perfinorte || '') + '" id="item-perfinorte-' + it.ID_Solicitacao + '" style="flex:1; padding:8px; border:1.5px solid var(--line); border-radius:8px;">';
-    html += '<button type="button" class="btn-secondary" style="width:auto; margin:0; padding:8px 12px;" onclick="salvarItemPerfinorteUI(\'' + it.ID_Solicitacao + '\')">Salvar item</button>';
-    html += '</div>';
-    html += '<label class="urgent-label" style="margin-bottom:8px;">' +
+
+    html += '<label class="urgent-toggle-compact">' +
       '<input type="checkbox" ' + (urgente ? 'checked' : '') + ' onchange="toggleUrgenteItemPedido(\'' + it.ID_Solicitacao + '\', this.checked)">' +
-      '<span class="urgent-box">🔴 ' + (urgente ? 'Marcado como urgente' : 'Marcar como urgente') + '</span></label>';
-    html += '<div class="status-actions">';
+      '<span>🔴 Urgente</span></label>';
+
+    html += '<div class="status-actions-compact">';
     CONFIG.status.forEach(st => {
       html += '<button type="button" class="' + (st === it.Status ? 'current' : '') + '" onclick="mudarStatusItemPedido(\'' + it.ID_Solicitacao + '\', \'' + st + '\')">' + st + '</button>';
     });
+    html += '</div>';
     html += '</div>';
   }
 
@@ -1739,7 +1762,7 @@ function acharItemPorId(idSolicitacao) {
 }
 
 function exigirModoAdmin() {
-  if (!MODO_ADMIN) { toast('Só a Bárbara pode fazer isso. Toque em 🔒 pra liberar.'); return false; }
+  if (!MODO_ADMIN) { toast('Só no Modo ADM. Toque em 🔒 pra liberar.'); return false; }
   return true;
 }
 
